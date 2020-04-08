@@ -30,48 +30,48 @@ int cOption = false;
 
 void ssu_score(int argc, char *argv[])
 {
-	char saved_path[BUFLEN];
+	char saved_path[BUFLEN]; //1024바이트짜리 배열생성
 	int i;
 
-	for(i = 0; i < argc; i++){
+	for(i = 0; i < argc; i++){//인자 검사하는데 -h 옵션 발견했을경우
 		if(!strcmp(argv[i], "-h")){
-			print_usage();
+			print_usage(); //사용방법 출력
 			return;
 		}
 	}
 
-	memset(saved_path, 0, BUFLEN);
-	if(argc >= 3 && strcmp(argv[1], "-c") != 0){
-		strcpy(stuDir, argv[1]);
-		strcpy(ansDir, argv[2]);
+	memset(saved_path, 0, BUFLEN); //배열을 0으로 다 채워준다.
+	if(argc >= 3 && strcmp(argv[1], "-c") != 0){//첫번째 인자로 들어온 옵션이 -c가 아니고 인자가 2개 이상일 경우
+		strcpy(stuDir, argv[1]); //stuDir에 첫번째 인자 복사
+		strcpy(ansDir, argv[2]); //ansDir에 두번째 인자 복사
 	}
 
-	if(!check_option(argc, argv))
-		exit(1);
+	if(!check_option(argc, argv)) //옵션 체크
+		exit(1); //설정하지 않은 옵션이 인자로 찍혔을 경우 끝내기.
 
-	if(!eOption && !tOption && !pOption && cOption){
-		do_cOption(cIDs);
+	if(!eOption && !tOption && !pOption && cOption){ //c옵션만 켜져있을 경우
+		do_cOption(cIDs); //cIDs에 저장한 인자들로 cOption에 대한 함수 실행
 		return;
 	}
 
-	getcwd(saved_path, BUFLEN);
+	getcwd(saved_path, BUFLEN); //saved_path에 현재 작업 디렉토리의 full path명을 저장
 
-	if(chdir(stuDir) < 0){
+	if(chdir(stuDir) < 0){ //현재 작업 디렉토리를 stuDir에 저장된 디렉토리로 변경
 		fprintf(stderr, "%s doesn't exist\n", stuDir);
 		return;
 	}
-	getcwd(stuDir, BUFLEN);
+	getcwd(stuDir, BUFLEN); //stuDir에 현재 작업 디렉토리의 full path명을 저장
 
-	chdir(saved_path);
-	if(chdir(ansDir) < 0){
+	chdir(saved_path); //현재 작업 디렉토리를 saved_path에 저장했던 경로로 변경
+	if(chdir(ansDir) < 0){ //현재 작업 디렉토리를 ansDir에 저장된 디렉토리로 변경
 		fprintf(stderr, "%s doesn't exist\n", ansDir);
 		return;
 	}
-	getcwd(ansDir, BUFLEN);
+	getcwd(ansDir, BUFLEN); //ansDir에 현재 작업 디렉토리의 full path명을 저장
 
-	chdir(saved_path);
+	chdir(saved_path); //현재 작업 디렉토리를 saved_path에 저장했던 경로로 변경
 
-	set_scoreTable(ansDir);
+	set_scoreTable(ansDir); //문제의 점수와 관련된 scoreTable 설정하는 함수 호출
 	set_idTable(stuDir);
 
 	printf("grading student's test papers..\n");
@@ -83,59 +83,62 @@ void ssu_score(int argc, char *argv[])
 	return;
 }
 
+//옵션 체크하는 함수
 int check_option(int argc, char *argv[])
 {
 	int i, j;
 	int c;
-
+	
+	//명령행의 옵션을 받는데, e옵션 뒤에는 인자를 제공하고 
+	//t,h,p,c옵션 뒤에는 인자를 제공하지 않는다.
 	while((c = getopt(argc, argv, "e:thpc")) != -1)
 	{
 		switch(c){
-			case 'e':
-				eOption = true;
-				strcpy(errorDir, optarg);
+			case 'e': //e일 경우
+				eOption = true; //e옵션을 키고
+				strcpy(errorDir, optarg); //-e 뒤에 오는 인자를 errorDir에 복사
 
-				if(access(errorDir, F_OK) < 0)
-					mkdir(errorDir, 0755);
-				else{
-					rmdirs(errorDir);
-					mkdir(errorDir, 0755);
+				if(access(errorDir, F_OK) < 0) //errorDir에 해당하는 폴더가 존재하지 않을경우
+					mkdir(errorDir, 0755); //해당 폴더 생성(_rwxr_xr_x 권한으로)
+				else{ //존재할 경우
+					rmdirs(errorDir); //해당 폴더 지우고 
+					mkdir(errorDir, 0755); //해당 폴더 재생성(_rwxr_xr_x 권한으로)
 				}
 				break;
-			case 't':
-				tOption = true;
-				i = optind;
+			case 't': //t일 경우
+				tOption = true; //t옵션을 키고
+				i = optind; //인수로 받은 문자열 중에 처리하지 못한 인수에 대한 인덱스 번호 저장
 				j = 0;
 
-				while(i < argc && argv[i][0] != '-'){
+				while(i < argc && argv[i][0] != '-'){ //인자를 차례대로 체크, 옵션이 아닌애들 중에서
 
-					if(j >= ARGNUM)
+					if(j >= ARGNUM) //정해둔 인자 수(5)를 넘어섰을 경우
 						printf("Maximum Number of Argument Exceeded.  :: %s\n", argv[i]);
-					else
-						strcpy(threadFiles[j], argv[i]);
+					else 
+						strcpy(threadFiles[j], argv[i]); //threadFiles에 인자 추가
 					i++; 
 					j++;
 				}
 				break;
-			case 'p':
-				pOption = true;
+			case 'p': //p일 경우
+				pOption = true; //p옵션을 킨다.
 				break;
-			case 'c':
-				cOption = true;
-				i = optind;
+			case 'c': //c일 경우
+				cOption = true; //c옵션을 킨다.
+				i = optind; //인수로 받은 문자열 중에 처리하지 못한 인수에 대한 인덱스 번호 저장
 				j = 0;
 
-				while(i < argc && argv[i][0] != '-'){
+				while(i < argc && argv[i][0] != '-'){ //인자를 차례대로 체크, 옵션이 아닌애들 중에서
 
-					if(j >= ARGNUM)
+					if(j >= ARGNUM) //정해둔 인자 수(5)를 넘어섰을 경우
 						printf("Maximum Number of Argument Exceeded.  :: %s\n", argv[i]);
-					else
-						strcpy(cIDs[j], argv[i]);
+					else 
+						strcpy(cIDs[j], argv[i]); //cID에 인자 추가
 					i++; 
 					j++;
 				}
 				break;
-			case '?':
+			case '?': //설정하지 않은 옵션이 인자로 쓰였을 경우
 				printf("Unkown option %c\n", optopt);
 				return false;
 		}
@@ -147,33 +150,33 @@ int check_option(int argc, char *argv[])
 
 void do_cOption(char (*ids)[FILELEN])
 {
-	FILE *fp;
+	FILE *fp; 
 	char tmp[BUFLEN];
 	int i = 0;
 	char *p, *saved;
 
-	if((fp = fopen("score.csv", "r")) == NULL){
+	if((fp = fopen("score.csv", "r")) == NULL){ //읽기모드로 score.csv 열기
 		fprintf(stderr, "file open error for score.csv\n");
 		return;
 	}
 
-	fscanf(fp, "%s\n", tmp);
+	fscanf(fp, "%s\n", tmp); //파일에서 읽어서 tmp에 저장한다.
 
-	while(fscanf(fp, "%s\n", tmp) != EOF)
+	while(fscanf(fp, "%s\n", tmp) != EOF) //파일의 끝에 도달할 때까지 읽는다.
 	{
-		p = strtok(tmp, ",");
+		p = strtok(tmp, ","); //받은 문자열 ',' 기준으로 자른다. 자르고 맨 앞에거 저장
 
-		if(!is_exist(ids, tmp))
-			continue;
+		if(!is_exist(ids, tmp)) //파일의 현재 id가 찾으려는 ids에 존재하는지?
+			continue; //없으면 다음거로
 
-		printf("%s's score : ", tmp);
+		printf("%s's score : ", tmp); 
 
-		while((p = strtok(NULL, ",")) != NULL)
-			saved = p;
+		while((p = strtok(NULL, ",")) != NULL) //','로 끊은거의 다음 차례거로 넘어감
+			saved = p; //saved에 위에서 넘어간 수치(점수) 저장
 
-		printf("%s\n", saved);
+		printf("%s\n", saved); //점수 출력
 	}
-	fclose(fp);
+	fclose(fp); //파일 닫기
 }
 
 int is_exist(char (*src)[FILELEN], char *target)
@@ -182,11 +185,11 @@ int is_exist(char (*src)[FILELEN], char *target)
 
 	while(1)
 	{
-		if(i >= ARGNUM)
+		if(i >= ARGNUM) //id배열 크기(5) 넘어갔을 경우 false 리턴
 			return false;
-		else if(!strcmp(src[i], ""))
+		else if(!strcmp(src[i], "")) //비어있으면 false 리턴
 			return false;
-		else if(!strcmp(src[i++], target))
+		else if(!strcmp(src[i++], target)) //찾는게 있느면 true 리턴
 			return true;
 	}
 	return false;
@@ -194,110 +197,96 @@ int is_exist(char (*src)[FILELEN], char *target)
 
 void set_scoreTable(char *ansDir)
 {
-	char filename[FILELEN];
+	char filename[FILELEN]; 
 
-	sprintf(filename, "%s/%s", ansDir, "score_table.csv");
+	sprintf(filename, "%s/%s", ansDir, "score_table.csv");//filename 저장. ansDir/score_table.csv
 
-	if(access(filename, F_OK) == 0)
-		read_scoreTable(filename);
-	else{
-		make_scoreTable(ansDir);
-		write_scoreTable(filename);
+	if(access(filename, F_OK) == 0) //테이블 파일이 존재할 경우
+		read_scoreTable(filename); //테이블  파일 읽는 함수 호출
+	else{ //존재하지 않을 경우
+		make_scoreTable(ansDir); //테이블 만드는 함수 호출
+		write_scoreTable(filename); //테이블 파일에 쓰는 함수 호출
 	}
 }
 
-void read_scoreTable(char *path)
+void read_scoreTable(char *path) 
 {
-	FILE *fp;
-	char qname[FILELEN];
-	char score[BUFLEN];
+	FILE *fp; 
+	char qname[FILELEN]; //퀴즈 이름담는 배열
+	char score[BUFLEN]; //점수 담는 배열
 	int idx = 0;
 
-	if((fp = fopen(path, "r")) == NULL){
+	if((fp = fopen(path, "r")) == NULL){ //읽기모드로 파일 연다(테이블)
 		fprintf(stderr, "file open error for %s\n", path);
 		return ;
 	}
-
+	
+	//파일에서 읽는데, ','전까지 읽어서 qname에, 뒷부분을 score에 저정한다.
 	while(fscanf(fp, "%[^,],%s\n", qname, score) != EOF){
-		strcpy(score_table[idx].qname, qname);
-		score_table[idx++].score = atof(score);
+		strcpy(score_table[idx].qname, qname); //score_table의 qname에 qname을 저장하고
+		score_table[idx++].score = atof(score); //score_table의 score에 socre을 실수로 변환하여 저장.
 	}
 
-	fclose(fp);
+	fclose(fp); //열었던 파일 닫는다.
 }
 
 void make_scoreTable(char *ansDir)
 {
 	int type, num;
 	double score, bscore, pscore;
-	struct dirent *dirp, *c_dirp;
-	DIR *dp, *c_dp;
+	struct dirent *dirp;
+	DIR *dp;
 	char tmp[BUFLEN];
 	int idx = 0;
 	int i;
 
-	num = get_create_type();
+	num = get_create_type(); //점수 어떻게 입력할지 사용자한테 물어보고 답받는다.
 
-	if(num == 1)
+	if(num == 1) //빈칸 문제와 프로그램 문제에 따로 점수 입력하는 경우
 	{
 		printf("Input value of blank question : ");
-		scanf("%lf", &bscore);
+		scanf("%lf", &bscore); //빈칸 문제의 점수를 담는 bscore에 점수 저장
 		printf("Input value of program question : ");
-		scanf("%lf", &pscore);
+		scanf("%lf", &pscore); //프로그램 문제의 점수를 담는 psocre에 점수 저장
 	}
-
-	if((dp = opendir(ansDir)) == NULL){
+	
+	if((dp = opendir(ansDir)) == NULL){ //ansDir 연다.
 		fprintf(stderr, "open dir error for %s\n", ansDir);
 		return;
 	}	
 
-	while((dirp = readdir(dp)) != NULL)
+	while((dirp = readdir(dp)) != NULL) //ansDir 안에 있는 파일을 하나씩 읽는다.
 	{
-		if(!strcmp(dirp->d_name, ".") || !strcmp(dirp->d_name, ".."))
+		if(!strcmp(dirp->d_name, ".") || !strcmp(dirp->d_name, "..")) //".",".."은 뛰어넘기
 			continue;
 
-		sprintf(tmp, "%s/%s", ansDir, dirp->d_name);
-
-		if((c_dp = opendir(tmp)) == NULL){
-			fprintf(stderr, "open dir error for %s\n", tmp);
-			return;
-		}
-
-		while((c_dirp = readdir(c_dp)) != NULL)
-		{
-			if(!strcmp(c_dirp->d_name, ".") || !strcmp(c_dirp->d_name, ".."))
-				continue;
-
-			if((type = get_file_type(c_dirp->d_name)) < 0)
-				continue;
-
-			strcpy(score_table[idx++].qname, c_dirp->d_name);
-		}
-
-		closedir(c_dp);
+		if((type = get_file_type(dirp->d_name)) < 0) //해당 파일이 .txt 파일인지 .c 파일인지 검사
+			continue;
+		
+		strcpy(score_table[idx++].qname, dirp->d_name); //해당 파일 이름을 score_table에 저장하고 다음 인덱스로 
 	}
 
-	closedir(dp);
-	sort_scoreTable(idx);
+	closedir(dp); //ansDir 닫는다.
+	sort_scoreTable(idx); //scoreTable 문제 번호순으로 정렬해준다.
 
 	for(i = 0; i < idx; i++)
 	{
-		type = get_file_type(score_table[i].qname);
+		type = get_file_type(score_table[i].qname); //해당 파일이 .txt 파일인지 .c 파일인지 검사
 
-		if(num == 1)
+		if(num == 1) //빈칸 문제와 프로그램 문제에 따로 점수 입력하는 경우
 		{
 			if(type == TEXTFILE)
-				score = bscore;
+				score = bscore; //빈칸 문제에 점수배정
 			else if(type == CFILE)
-				score = pscore;
+				score = pscore; //프로그램 문제에 점수 배정
 		}
-		else if(num == 2)
+		else if(num == 2) //문제 각각에 대하여 점수 배정하는 경우 해당 문제의 점수를 입력받아 저장
 		{
-			printf("Input of %s: ", score_table[i].qname);
+			printf("Input of %s: ", score_table[i].qname); 
 			scanf("%lf", &score);
 		}
 
-		score_table[i].score = score;
+		score_table[i].score = score; //그 문제의 점수를 정해준다.
 	}
 }
 
@@ -306,23 +295,24 @@ void write_scoreTable(char *filename)
 	int fd;
 	char tmp[BUFLEN];
 	int i;
-	int num = sizeof(score_table) / sizeof(score_table[0]);
+	int num = sizeof(score_table) / sizeof(score_table[0]); //테이블 전체 행 개수
 
-	if((fd = creat(filename, 0666)) < 0){
+	if((fd = creat(filename, 0666)) < 0){ //_rw_rw_rw권한으로 파일을 생성한다.
 		fprintf(stderr, "creat error for %s\n", filename);
 		return;
 	}
 
-	for(i = 0; i < num; i++)
+	for(i = 0; i < num; i++) //테이블 전체 반복
 	{
-		if(score_table[i].score == 0)
+		if(score_table[i].score == 0) //score 0이면 그만
 			break;
-
+		
+		//tmp에 문제이름,점수 형식으로 저장
 		sprintf(tmp, "%s,%.2f\n", score_table[i].qname, score_table[i].score);
-		write(fd, tmp, strlen(tmp));
+		write(fd, tmp, strlen(tmp)); //creat한 파일에 tmp를 차례대로 쭉 써준다.
 	}
 
-	close(fd);
+	close(fd); //파일 닫는다.
 }
 
 
@@ -371,23 +361,23 @@ void sort_idTable(int size)
 	}
 }
 
-void sort_scoreTable(int size)
+void sort_scoreTable(int size) //scoreTable 문제 번호순으로 정렬해주는 함수
 {
 	int i, j;
 	struct ssu_scoreTable tmp;
 	int num1_1, num1_2;
 	int num2_1, num2_2;
 
-	for(i = 0; i < size - 1; i++){
-		for(j = 0; j < size - 1 - i; j++){
+	for(i = 0; i < size - 1; i++){ //처음부터 테이블 끝까지 검사
+		for(j = 0; j < size - 1 - i; j++){ 
 
-			get_qname_number(score_table[j].qname, &num1_1, &num1_2);
-			get_qname_number(score_table[j+1].qname, &num2_1, &num2_2);
+			get_qname_number(score_table[j].qname, &num1_1, &num1_2); //현재 파일의 이름 알아오기
+			get_qname_number(score_table[j+1].qname, &num2_1, &num2_2); //다음 파일의 이름 알아오기
 
 
-			if((num1_1 > num2_1) || ((num1_1 == num2_1) && (num1_2 > num2_2))){
-
-				memcpy(&tmp, &score_table[j], sizeof(score_table[0]));
+			if((num1_1 > num2_1) || ((num1_1 == num2_1) && (num1_2 > num2_2))){ //문제 번호 현재거가 더 크다면
+				//아래 세줄은 큰거를 뒤로 보내는 과정
+				memcpy(&tmp, &score_table[j], sizeof(score_table[0])); 
 				memcpy(&score_table[j], &score_table[j+1], sizeof(score_table[0]));
 				memcpy(&score_table[j+1], &tmp, sizeof(score_table[0]));
 			}
@@ -399,17 +389,19 @@ void get_qname_number(char *qname, int *num1, int *num2)
 {
 	char *p;
 	char dup[FILELEN];
-
-	strncpy(dup, qname, strlen(qname));
-	*num1 = atoi(strtok(dup, "-."));
 	
-	p = strtok(NULL, "-.");
-	if(p == NULL)
-		*num2 = 0;
-	else
-		*num2 = atoi(p);
+
+	strncpy(dup, qname, strlen(qname));//qname의 문자열을 dup에 qname의 사이즈만큼 복사
+	*num1 = atoi(strtok(dup, "-.")); //'.'과 '-'로 구분하여 dup을 분리한다. 제일 첫번째로 나온거 정수로 바꿔주고 저장
+	
+	p = strtok(NULL, "-.");//그 다음으로 나온거 포인터가 가리키게
+	if(p == NULL) //나온게 없다면
+		*num2 = 0; //num2는 0
+	else //나왔다면
+		*num2 = atoi(p); //정수로 변환하여 num2에 저장 
 }
 
+//score_table 존재하지 않을 때 빈칸문제와 프로그램 문제에 점수 넣는 방식 입력받기
 int get_create_type()
 {
 	int num;
@@ -420,9 +412,9 @@ int get_create_type()
 		printf("1. input blank question and program question's score. ex) 0.5 1\n");
 		printf("2. input all question's score. ex) Input value of 1-1: 0.1\n");
 		printf("select type >> ");
-		scanf("%d", &num);
+		scanf("%d", &num); //입력받아서
 
-		if(num != 1 && num != 2)
+		if(num != 1 && num != 2) //해당 안되면 다시 입력받게
 			printf("not correct number!\n");
 		else
 			break;
@@ -431,7 +423,7 @@ int get_create_type()
 	return num;
 }
 
-void score_students()
+void score_students() //여기부터 분석하면 돼
 {
 	double score = 0;
 	int num;
@@ -917,14 +909,14 @@ void redirection(char *command, int new, int old)
 
 int get_file_type(char *filename)
 {
-	char *extension = strrchr(filename, '.');
+	char *extension = strrchr(filename, '.'); //filename에서 .이 나온 가장 오른쪽 위치 찾아 포인터로 리턴
 
-	if(!strcmp(extension, ".txt"))
-		return TEXTFILE;
-	else if (!strcmp(extension, ".c"))
-		return CFILE;
+	if(!strcmp(extension, ".txt")) //.txt파일일 경우
+		return TEXTFILE; //TEXTFILE임을 리턴
+	else if (!strcmp(extension, ".c")) //.c파일일 경우
+		return CFILE; //CFILE임을 리턴
 	else
-		return -1;
+		return -1; //둘다 아니면 -1
 }
 
 void rmdirs(const char *path)
@@ -963,6 +955,7 @@ void to_lower_case(char *c)
 		*c = *c + 32;
 }
 
+//사용 방법 출력해주는 함수
 void print_usage()
 {
 	printf("Usage : ssu_score <STUDENTDIR> <TRUEDIR> [OPTION]\n");
