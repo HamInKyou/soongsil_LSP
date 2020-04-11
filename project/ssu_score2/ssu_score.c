@@ -95,10 +95,11 @@ int check_option(int argc, char *argv[])
 	//(-e를 만나면 자동으로 그 뒤에 붙은 문자열을 공백까지 탐색하여 이를 optarg에 복사)
 	//t,h,c 옵션은 별도의 파라미터를 받지 않는다.
 	//각각의 옵션을 파싱하기 위해 반복문을 수행한다.
-/////////////////////////수정<이전>////////////////////////
-// while((c = getopt(argc, argv, "e:thpc")) != -1)       //
-/////////////////////////수정<이후>////////////////////////	
+/*///////////////////////수정<이전>////////////////////////
+   while((c = getopt(argc, argv, "e:thpc")) != -1)
+/////////////////////////수정<이후>///////////////////// */	
 	while((c = getopt(argc, argv, "e:thc")) != -1)
+///////////////////////////////////////////////////////////
 	{
 		switch(c){
 			case 'e': //옵션 e
@@ -127,11 +128,11 @@ int check_option(int argc, char *argv[])
 					j++;  //다음 인자 체크하게
 				}
 				break;
-///////////////////////삭제////////////////////////				
-//			case 'p':                               //
-//				pOption = true;                      //
-//				break;                               //
-///////////////////////////////////////////////////
+/*/////////////////////삭제////////////////////////				
+			case 'p':                               
+				pOption = true;                      
+				break;                               
+//////////////////////////////////////////////// */
 			
 			case 'c': //옵션 c
 				cOption = true; //c옵션 킨다.
@@ -278,33 +279,41 @@ void make_scoreTable(char *ansDir)
 		if(!strcmp(dirp->d_name, ".") || !strcmp(dirp->d_name, "..")) //'.','..'은 넘어가고
 			continue;
 
-		sprintf(tmp, "%s/%s", ansDir, dirp->d_name); //"ANSDIR/읽은것"을 tmp에 저장한다. 
-
-///////////////////////////////////////////////////////////////////////////////////////////
-		
-		if((c_dp = opendir(tmp)) == NULL){ //"ANSDIR/읽은 폴더"를 open한다.
-			fprintf(stderr, "open dir error for %s\n", tmp);
-			return;
-		}
-
+/*////////////////////////////////////수정 전//////////////////////////////////////////////////
+		sprintf(tmp, "%s/%s", ansDir, dirp->d_name); //"ANSDIR/읽은것"을 tmp에 저장한다.       
+                                                                                           
+		if((c_dp = opendir(tmp)) == NULL){ //"ANSDIR/읽은 폴더"를 open한다.                    
+			fprintf(stderr, "open dir error for %s\n", tmp);                                    
+			return;                                                                             
+		}                                                                                      
+                                                                                           
 		while((c_dirp = readdir(c_dp)) != NULL) //"ANSDIR/읽은 폴더"의 내부에 있는 파일 읽는다.
-		{
-			if(!strcmp(c_dirp->d_name, ".") || !strcmp(c_dirp->d_name, "..")) //'.','.." 넘어감
-				continue;
+		{                                                                                      
+			if(!strcmp(c_dirp->d_name, ".") || !strcmp(c_dirp->d_name, "..")) //'.','.." 넘어감 
+				continue;                                                                        
+                                                                                           
+			if((type = get_file_type(c_dirp->d_name)) < 0) //읽은 파일의 문제 유형을 받는다.    
+				continue;                                                                        
+                                                                                           
+			//읽은 파일의 이름을 score_table.qname에 저장하고, 다음인덱스로 넘긴다.             
+			strcpy(score_table[idx++].qname, c_dirp->d_name);                                   
+		}                                                                                      
+                                                                                           
+		closedir(c_dp); //"ANSDIR/읽은 폴더"를 닫는다.                                         
+	}                                                                                         
+                                                                                           
+//////////////////////////////////////수정 후//////////////////////////////////////////////// */
+	
+	if((type = get_file_type(dirp->d_name)) < 0) //읽은 파일의 문제 유형을 받는다.
+		continue;
 
-			if((type = get_file_type(c_dirp->d_name)) < 0) //읽은 파일의 문제 유형을 받는다.
-				continue;
-
-			//읽은 파일의 이름을 score_table.qname에 저장하고, 다음인덱스로 넘긴다.
-			strcpy(score_table[idx++].qname, c_dirp->d_name);
-		}
-
-		closedir(c_dp); //"ANSDIR/읽은 폴더"를 닫는다.
+   //읽은 파일의 이름을 score_table.qname에 저장하고, 다음인덱스로 넘긴다.        
+	strcpy(score_table[idx++].qname, dirp->d_name);                                   
+	
 	}
-
-///////////////////////////////////////////////////////////////////////////////////////////
-
 	closedir(dp); //ANSDIR 닫는다.
+///////////////////////////////////////////////////////////////////////////////////////////////
+	
 	sort_scoreTable(idx); //score_table 문제 번호 오름차순으로 정렬해준다.
 
 	for(i = 0; i < idx; i++) //score_table 훑으면서 문제 유형에 따라 점수를 배정해준다.
@@ -500,9 +509,15 @@ void score_students()
 		//각 학생의 점수를 score에 더해주면서 합해준다.
 		score += score_student(fd, id_table[num]);
 	}
+/*//////////////////////////수정 전///////////////////////////////////	
+	if(pOption)
+		printf("Total average : %.2f\n", score / num);
+
+////////////////////////////수정 후//////////////////////////////// */		
 	
 	//합한 점수를 총 학생 명수로 나누어 평점을 출력한다.
 	printf("Total average : %.2f\n", score / num);
+//////////////////////////////////////////////////////////////////////	
 	
 	close(fd); //score.csv를 닫는다.
 }
@@ -553,9 +568,17 @@ double score_student(int fd, char *id)
 			write(fd, tmp, strlen(tmp)); //score.csv에 "점수," 써준다.
 		}
 	}
+/*//////////////////////수정 전/////////////////////////////////	
+	if(pOption)
+		printf("%s is finished.. score : %.2f\n", id, score); 
+	else
+		printf("%s is finished..\n", id);
+////////////////////////수정 후////////////////////////////// */
 
 	//채점이 끝났음과 함께 채점한 점수를 출력해준다.
 	printf("%s is finished.. score : %.2f\n", id, score);
+
+////////////////////////////////////////////////////////////////	
 	
 	//모든 문제를 채점한 결과를 tmp에 써준다.
 	sprintf(tmp, "%.2f\n", score);
@@ -663,7 +686,11 @@ int score_blank(char *id, char *filename)
 	idx = 0;
 	std_root = make_tree(std_root, tokens, &idx, 0);
 
+/*////////////////////////수정 전////////////////////////////
 	sprintf(tmp, "%s/%s/%s", ansDir, qname, filename);
+//////////////////////////수정 후///////////////////////// */	
+	sprintf(tmp, "%s/%s", ansDir, filename);
+///////////////////////////////////////////////////////// ///	
 	fd_ans = open(tmp, O_RDONLY);
 
 	while(1)
@@ -778,30 +805,42 @@ double compile_program(char *id, char *filename)
 	memcpy(qname, filename, strlen(filename) - strlen(strrchr(filename, '.')));
 	
 	isthread = is_thread(qname); //해당 문제번호가 threadFiles[]에 있는지 검사하는 함수 호출
-	
+
+/*//////////////////////수정 전//////////////////////////////////
 	//tmp_f에 "ANSDIR/문제번호/문제번호.확장자" 입력한다.
 	sprintf(tmp_f, "%s/%s/%s", ansDir, qname, filename);
 	//tmp_f에 "ANSDIR/문제번호/문제번호.exe" 입력한다.
 	sprintf(tmp_e, "%s/%s/%s.exe", ansDir, qname, qname);
+////////////////////////수정 후/////////////////////////////// */
+	//tmp_f에 "ANSDIR/문제번호.확장자" 입력한다.
+	sprintf(tmp_f, "%s/%s", ansDir, filename);
+	//tmp_f에 "ANSDIR/문제번호.exe" 입력한다.
+	sprintf(tmp_e, "%s/%s.exe", ansDir, qname);
+/////////////////////////////////////////////////////////////////
 
 	if(tOption && isthread) //t 옵션이 켜져있고, 해당 문제 번호가 threadFiles[]에 있다면
 		sprintf(command, "gcc -o %s %s -lpthread", tmp_e, tmp_f); //-lpthread 옵션으로 컴파일
 	else //아니라면
 		sprintf(command, "gcc -o %s %s", tmp_e, tmp_f); //그냥 컴파일
-	
+
+/*//////////////////////수정 전//////////////////////////////////
 	//tmp_e에 "ANSDIR/문제번호/문제번호_error.txt" 입력한다.
 	sprintf(tmp_e, "%s/%s/%s_error.txt", ansDir, qname, qname);
-	fd = creat(tmp_e, 0666); //ANSDIR/문제번호/문제번호_error.txt 생성한다.
+////////////////////////수정 후/////////////////////////////// */
+	//tmp_e에 "ANSDIR/문제번호_error.txt" 입력한다.
+	sprintf(tmp_e, "%s/%s_error.txt", ansDir, qname);
+/////////////////////////////////////////////////////////////////
+	fd = creat(tmp_e, 0666); //ANSDIR/문제번호_error.txt 생성한다.
 
 	//STDERR을 fd도 가러리키게 했다가
 	//command에 입력한 명령을 실행하고 다시 STDERR 본래의 파일 디스크립터로 돌아오게 함
 	redirection(command, fd, STDERR);
 
-	size = lseek(fd, 0, SEEK_END); //ANSDIR/문제번호/문제번호_error.txt의 파일크기 측정
-	close(fd); //ANSDIR/문제번호/문제번호_error.txt 닫는다.
-	unlink(tmp_e); //ANSDIR/문제번호/문제번호_error.txt의 link count하나 줄인다(삭제)
+	size = lseek(fd, 0, SEEK_END); //ANSDIR/문제번호_error.txt의 파일크기 측정
+	close(fd); //ANSDIR/문제번호_error.txt 닫는다.
+	unlink(tmp_e); //ANSDIR/문제번호_error.txt의 link count하나 줄인다(삭제)
 
-	if(size > 0) //ANSDIR/문제번호/문제번호_error.txt에 에러메세지 들어있을 경우
+	if(size > 0) //ANSDIR/문제번호_error.txt에 에러메세지 들어있을 경우
 		return false; //컴파일 실패했다.
 	
 	//tmp_f에 "STUDIR/학번/문제번호.확장자" 입력한다.
@@ -891,17 +930,26 @@ int execute_program(char *id, char *filename)
 	//filename에서 .앞에 있는 문제번호만을 파싱한다.
 	memcpy(qname, filename, strlen(filename) - strlen(strrchr(filename, '.')));
 
+/*//////////////////////////수정 전////////////////////////////////////////////
 	//ans_fname에 "ANSDIR/문제번호/문제번호.stdout" 입력한다.
 	sprintf(ans_fname, "%s/%s/%s.stdout", ansDir, qname, qname);
 	fd = creat(ans_fname, 0666); //ANSDIR/문제번호/문제번호.stdout을 생성한다.
 
 	//tmp에 "ANSDIR/문제번호/문제번호.exe" 입력한다.
 	sprintf(tmp, "%s/%s/%s.exe", ansDir, qname, qname);
+////////////////////////////수정 후///////////////////////////////////////// */
+	//ans_fname에 "ANSDIR/문제번호.stdout" 입력한다.
+	sprintf(ans_fname, "%s/%s.stdout", ansDir, qname);
+	fd = creat(ans_fname, 0666); //ANSDIR/문제번호/문제번호.stdout을 생성한다.
 
-	//STDOUT도 ANSDIR/문제번호/문제번호.stdout을 가리키게 했다가
-	//ANSDIR/문제번호/문제번호.exe 실행하고 다시 STDOUT 본래의 파일 디스크립터로 돌아오게 함
+	//tmp에 "ANSDIR/문제번호.exe" 입력한다.
+	sprintf(tmp, "%s/%s.exe", ansDir, qname);
+///////////////////////////////////////////////////////////////////////////////
+
+	//STDOUT도 ANSDIR/문제번호.stdout을 가리키게 했다가
+	//ANSDIR/문제번호.exe 실행하고 다시 STDOUT 본래의 파일 디스크립터로 돌아오게 함
 	redirection(tmp, fd, STDOUT);
-	close(fd); //ANSDIR/문제번호/문제번호.stdout을 닫는다.
+	close(fd); //ANSDIR/문제번호.stdout을 닫는다.
 
 	//std_fname에 "STUDIR/학번/문제번호.stdout" 입력한다.
 	sprintf(std_fname, "%s/%s/%s.stdout", stuDir, id, qname);
