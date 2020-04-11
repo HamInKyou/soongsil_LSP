@@ -1255,29 +1255,29 @@ void clear_tokens(char tokens[TOKEN_CNT][MINLEN])
 		memset(tokens[i], 0, sizeof(tokens[i]));
 }
 
-char *rtrim(char *_str)
+char *rtrim(char *_str) //공백 기준 오른쪽 잘라내는 함수
 {
 	char tmp[BUFLEN];
 	char *end;
 
-	strcpy(tmp, _str);
-	end = tmp + strlen(tmp) - 1;
-	while(end != _str && isspace(*end))
-		--end;
+	strcpy(tmp, _str); //인자로 받은 값을 임시로 tmp에 복사해서 저장한다.
+	end = tmp + strlen(tmp) - 1; //tmp의 끝을 end가 가리키게한다.
+	while(end != _str && isspace(*end)) //end가 _str를 가리키거나 가리키는 곳이 공백일 때까지
+		--end; //end를 하나 전꺼를 가리키게 한다.
 
-	*(end + 1) = '\0';
-	_str = tmp;
-	return _str;
+	*(end + 1) = '\0'; //end 다음거에 널문자를 추가한다.
+	_str = tmp; //tmp가 가리키는 위치를 _str도 가리키게 한다.
+	return _str; //그 위치를 리턴
 }
 
-char *ltrim(char *_str)
+char *ltrim(char *_str) //공백 기준 왼쪽 잘라내는 함수
 {
-	char *start = _str;
+	char *start = _str; //인자로 받은걸 가리키게
 
-	while(*start != '\0' && isspace(*start))
-		++start;
-	_str = start;
-	return _str;
+	while(*start != '\0' && isspace(*start)) //start가 가리키는 값이 널이 아니고, 공백도 아니면
+		++start;//start 포인터 위치 하나 뒤로 옮겨준다.
+	_str = start;//널이나 공백이 왔을 경우 _str이 start가 가리키는 위치 가리키게 한다.
+	return _str; //그 위치를 리턴
 }
 
 char* remove_extraspace(char *str)
@@ -1337,27 +1337,27 @@ void remove_space(char *str)
 	*i = 0;
 }
 
-int check_brackets(char *str)
+int check_brackets(char *str) 
 {
-	char *start = str;
+	char *start = str; //인자로 받은 학생의 답을 가리키는 포인터
 	int lcount = 0, rcount = 0;
 	
 	while(1){
-		if((start = strpbrk(start, "()")) != NULL){
-			if(*(start) == '(')
-				lcount++;
+		if((start = strpbrk(start, "()")) != NULL){ //(또는 )가 입력된 부분의 위치를 가리키게 해준다.
+			if(*(start) == '(') //(를 가리키는 경우
+				lcount++; //lcount를 하나 올리고
 			else
-				rcount++;
+				rcount++; //)를 가리키는 경우 rcount를 하나 올린다.
 
-			start += 1; 		
+			start += 1; //읽었으니 포인터 값 하나 증가시킨다.
 		}
 		else
 			break;
 	}
 
-	if(lcount != rcount)
+	if(lcount != rcount) //( 수와 ) 수가 다를경우 false 리턴
 		return 0;
-	else 
+	else //같을 경우 true 리턴
 		return 1;
 }
 

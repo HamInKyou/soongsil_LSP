@@ -25,7 +25,6 @@ char cIDs[ARGNUM][FILELEN];
 
 int eOption = false;
 int tOption = false;
-int pOption = false;
 int cOption = false;
 
 void ssu_score(int argc, char *argv[])
@@ -49,7 +48,7 @@ void ssu_score(int argc, char *argv[])
 	if(!check_option(argc, argv)) //옵션 체크
 		exit(1); //설정하지 않은 옵션이 인자로 찍혔을 경우 끝내기.
 
-	if(!eOption && !tOption && !pOption && cOption){ //c옵션만 켜져있을 경우
+	if(!eOption && !tOption && cOption){ //c옵션만 켜져있을 경우
 		do_cOption(cIDs); //cIDs에 저장한 인자들로 cOption에 대한 함수 실행
 		return;
 	}
@@ -72,13 +71,13 @@ void ssu_score(int argc, char *argv[])
 	chdir(saved_path); //현재 작업 디렉토리를 saved_path에 저장했던 경로로 변경
 
 	set_scoreTable(ansDir); //문제의 점수와 관련된 scoreTable 설정하는 함수 호출
-	set_idTable(stuDir);
+	set_idTable(stuDir); //학생들의 정보와 관련된 idTable 설정하는 함수 호출
 
 	printf("grading student's test papers..\n");
-	score_students();
+	score_students(); //점수를 매기는 함수 호출
 
-	if(cOption)
-		do_cOption(cIDs);
+	if(cOption) //c옵션이 켜져있을 경우
+		do_cOption(cIDs); //c옵션 관련 함수 실행
 
 	return;
 }
@@ -91,7 +90,7 @@ int check_option(int argc, char *argv[])
 	
 	//명령행의 옵션을 받는데, e옵션 뒤에는 인자를 제공하고 
 	//t,h,p,c옵션 뒤에는 인자를 제공하지 않는다.
-	while((c = getopt(argc, argv, "e:thpc")) != -1)
+	while((c = getopt(argc, argv, "e:thc")) != -1)
 	{
 		switch(c){
 			case 'e': //e일 경우
@@ -119,9 +118,6 @@ int check_option(int argc, char *argv[])
 					i++; 
 					j++;
 				}
-				break;
-			case 'p': //p일 경우
-				pOption = true; //p옵션을 킨다.
 				break;
 			case 'c': //c일 경우
 				cOption = true; //c옵션을 킨다.
@@ -318,41 +314,41 @@ void write_scoreTable(char *filename)
 
 void set_idTable(char *stuDir)
 {
-	struct stat statbuf;
-	struct dirent *dirp;
-	DIR *dp;
+	struct stat statbuf; //
+	struct dirent *dirp; //디렉토리 안의 파일을 가리키는 구조체 포인터
+	DIR *dp; //디렉토리 가리키는 포인터
 	char tmp[BUFLEN];
 	int num = 0;
 
-	if((dp = opendir(stuDir)) == NULL){
+	if((dp = opendir(stuDir)) == NULL){ //stuDir 디렉토리를 연다.
 		fprintf(stderr, "opendir error for %s\n", stuDir);
 		exit(1);
 	}
 
-	while((dirp = readdir(dp)) != NULL){
-		if(!strcmp(dirp->d_name, ".") || !strcmp(dirp->d_name, ".."))
+	while((dirp = readdir(dp)) != NULL){ //stuDir 내의 파일을 차례로 읽는다.
+		if(!strcmp(dirp->d_name, ".") || !strcmp(dirp->d_name, "..")) //'.'과'..'을 읽고나서
 			continue;
 
-		sprintf(tmp, "%s/%s", stuDir, dirp->d_name);
-		stat(tmp, &statbuf);
+		sprintf(tmp, "%s/%s", stuDir, dirp->d_name); // 디렉토리/디렉토리 내의 파일 경로를 tmp에 저장한다.
+		stat(tmp, &statbuf); //tmp에 저장된 파일 이름의 정보를 statbuf에 저장한다.
 
-		if(S_ISDIR(statbuf.st_mode))
-			strcpy(id_table[num++], dirp->d_name);
+		if(S_ISDIR(statbuf.st_mode)) //그 파일이 디렉토리파일일 경우
+			strcpy(id_table[num++], dirp->d_name); //id_table의 한 행에 그 디렉토리파일의 이름을 저장한다.
 		else
 			continue;
 	}
 
-	sort_idTable(num);
+	sort_idTable(num); //그 디렉토리들을 이름순으로 정렬하는 함수를 호출한다.
 }
 
-void sort_idTable(int size)
+void sort_idTable(int size) //이름순으로 정렬해주는 함수
 {
 	int i, j;
-	char tmp[10];
+	char tmp[10]; //임시 배열
 
-	for(i = 0; i < size - 1; i++){
+	for(i = 0; i < size - 1; i++){ //이름순으로 정렬해주는 반복과정
 		for(j = 0; j < size - 1 -i; j++){
-			if(strcmp(id_table[j], id_table[j+1]) > 0){
+			if(strcmp(id_table[j], id_table[j+1]) > 0){ //제일 큰거를 뒤로 보내주면서 정렬한다.
 				strcpy(tmp, id_table[j]);
 				strcpy(id_table[j], id_table[j+1]);
 				strcpy(id_table[j+1], tmp);
@@ -423,33 +419,32 @@ int get_create_type()
 	return num;
 }
 
-void score_students() //여기부터 분석하면 돼
+void score_students() 
 {
 	double score = 0;
 	int num;
 	int fd;
-	char tmp[BUFLEN];
-	int size = sizeof(id_table) / sizeof(id_table[0]);
+	char tmp[BUFLEN]; //임시 배열
+	int size = sizeof(id_table) / sizeof(id_table[0]); //테이블의 행 개수 저장
 
-	if((fd = creat("score.csv", 0666)) < 0){
+	if((fd = creat("score.csv", 0666)) < 0){ //score.csv를 생성한다.
 		fprintf(stderr, "creat error for score.csv");
 		return;
 	}
-	write_first_row(fd);
+	write_first_row(fd); //첫번째 열을 채워주는 함수 호출
 
-	for(num = 0; num < size; num++)
+	for(num = 0; num < size; num++) //처음부터 끝까지 모든 행을 검사하며
 	{
-		if(!strcmp(id_table[num], ""))
+		if(!strcmp(id_table[num], "")) //해당 행이 비어있을 경우 그만
 			break;
 
-		sprintf(tmp, "%s,", id_table[num]);
-		write(fd, tmp, strlen(tmp)); 
+		sprintf(tmp, "%s,", id_table[num]); //tmp에 id_table의 현재 행을 "아이디," 꼴로 저장해준다.
+		write(fd, tmp, strlen(tmp));  //tmp에 저장한걸 파일에 써준다.
 
-		score += score_student(fd, id_table[num]);
+		score += score_student(fd, id_table[num]); 
 	}
 
-	if(pOption)
-		printf("Total average : %.2f\n", score / num);
+	printf("Total average : %.2f\n", score / num);
 
 	close(fd);
 }
@@ -461,25 +456,25 @@ double score_student(int fd, char *id)
 	double score = 0;
 	int i;
 	char tmp[BUFLEN];
-	int size = sizeof(score_table) / sizeof(score_table[0]);
+	int size = sizeof(score_table) / sizeof(score_table[0]); //score_table의 전체 행 개수 저장
 
-	for(i = 0; i < size ; i++)
+	for(i = 0; i < size ; i++) //전체 행 반복
 	{
-		if(score_table[i].score == 0)
+		if(score_table[i].score == 0) //해당 행의 score가 0이면 그만
 			break;
 
-		sprintf(tmp, "%s/%s/%s", stuDir, id, score_table[i].qname);
+		sprintf(tmp, "%s/%s/%s", stuDir, id, score_table[i].qname); //tmp에 디렉토리/아이디/문제번호 저장
 
-		if(access(tmp, F_OK) < 0)
+		if(access(tmp, F_OK) < 0) //그러한 파일이 존재하는지?
 			result = false;
-		else
+		else //존재한다면
 		{
-			if((type = get_file_type(score_table[i].qname)) < 0)
+			if((type = get_file_type(score_table[i].qname)) < 0) //.txt 파일인지 .c 파일인지 알아내서
 				continue;
 			
-			if(type == TEXTFILE)
-				result = score_blank(id, score_table[i].qname);
-			else if(type == CFILE)
+			if(type == TEXTFILE) //textfile일 경우
+				result = score_blank(id, score_table[i].qname); 
+			else if(type == CFILE) //.c 파일일 경우
 				result = score_program(id, score_table[i].qname);
 		}
 
@@ -498,10 +493,7 @@ double score_student(int fd, char *id)
 		}
 	}
 
-	if(pOption)
-		printf("%s is finished.. score : %.2f\n", id, score); 
-	else
-		printf("%s is finished..\n", id);
+	printf("%s is finished.. score : %.2f\n", id, score); 
 
 	sprintf(tmp, "%.2f\n", score);
 	write(fd, tmp, strlen(tmp));
@@ -513,18 +505,18 @@ void write_first_row(int fd)
 {
 	int i;
 	char tmp[BUFLEN];
-	int size = sizeof(score_table) / sizeof(score_table[0]);
+	int size = sizeof(score_table) / sizeof(score_table[0]); //score_table의 전체 행 개수 저장
 
-	write(fd, ",", 1);
+	write(fd, ",", 1); //인자로 불러온 fd가 가리키는 파일에 ','을 입력한다.
 
-	for(i = 0; i < size; i++){
-		if(score_table[i].score == 0)
+	for(i = 0; i < size; i++){ //행을 하나씩 검사하면서
+		if(score_table[i].score == 0) //점수가 0일경우 그만
 			break;
 		
-		sprintf(tmp, "%s,", score_table[i].qname);
-		write(fd, tmp, strlen(tmp));
+		sprintf(tmp, "%s,", score_table[i].qname); //tmp에 "퀴즈이름,"을 저장한다.
+		write(fd, tmp, strlen(tmp));//fd가 가리키는 파일에 "퀴즈이름,"을 써준다.
 	}
-	write(fd, "sum\n", 4);
+	write(fd, "sum\n", 4); //반복문 다 끝나고 뒤에 "sum\n"을 붙인다.
 }
 
 char *get_answer(int fd, char *result)
@@ -532,18 +524,18 @@ char *get_answer(int fd, char *result)
 	char c;
 	int idx = 0;
 
-	memset(result, 0, BUFLEN);
-	while(read(fd, &c, 1) > 0)
+	memset(result, 0, BUFLEN); //result에 인자로 들어온 배열을 초기화한다.
+	while(read(fd, &c, 1) > 0) //인자로 받은 파일 디스크립터가 가리키는 파일에서 한글자씩 읽는다.
 	{
-		if(c == ':')
+		if(c == ':') // ':'나왔을 경우 그만
 			break;
 		
-		result[idx++] = c;
+		result[idx++] = c; //result에 읽은거 한글자씩 저장한다.
 	}
-	if(result[strlen(result) - 1] == '\n')
-		result[strlen(result) - 1] = '\0';
+	if(result[strlen(result) - 1] == '\n') //result의 마지막 글자가 개행문자일경우
+		result[strlen(result) - 1] = '\0'; //개행문자를 널로 바꿔준다.
 
-	return result;
+	return result; //그 결과 리턴
 }
 
 int score_blank(char *id, char *filename)
@@ -558,28 +550,28 @@ int score_blank(char *id, char *filename)
 	int result = true;
 	int has_semicolon = false;
 
-	memset(qname, 0, sizeof(qname));
-	memcpy(qname, filename, strlen(filename) - strlen(strrchr(filename, '.')));
+	memset(qname, 0, sizeof(qname)); //퀴즈 이름 들어갈 배열 비워준다.
+	memcpy(qname, filename, strlen(filename) - strlen(strrchr(filename, '.'))); //마지막으로 나온 .뒤를 제외하고 filename에 들어간 문자열을 qname에 복사한다.
 
-	sprintf(tmp, "%s/%s/%s", stuDir, id, filename);
-	fd_std = open(tmp, O_RDONLY);
-	strcpy(s_answer, get_answer(fd_std, s_answer));
+	sprintf(tmp, "%s/%s/%s", stuDir, id, filename); // 디렉토리/아이디/파일명 순으로 tmp에 저장한다.
+	fd_std = open(tmp, O_RDONLY); //tmp에 경로가 들어간 그 파일을 읽기모드로 연다.
+	strcpy(s_answer, get_answer(fd_std, s_answer)); //그 파일에 쓰인 답을 읽어서 s_answer에 저장한다.
 
-	if(!strcmp(s_answer, "")){
-		close(fd_std);
+	if(!strcmp(s_answer, "")){ //답이 없었을 경우
+		close(fd_std); //파일 닫는다.
 		return false;
 	}
 
-	if(!check_brackets(s_answer)){
-		close(fd_std);
-		return false;
+	if(!check_brackets(s_answer)){ //(와 ) 수가 같은지 조사
+		close(fd_std); //다른경우 파일을 닫고
+		return false; //false 리턴
 	}
 
-	strcpy(s_answer, ltrim(rtrim(s_answer)));
+	strcpy(s_answer, ltrim(rtrim(s_answer))); //오른쪽 자르고 왼쪽 자른거 s_answer에 복사
 
-	if(s_answer[strlen(s_answer) - 1] == ';'){
-		has_semicolon = true;
-		s_answer[strlen(s_answer) - 1] = '\0';
+	if(s_answer[strlen(s_answer) - 1] == ';'){ //마지막 글자가 세미콜론일 경우
+		has_semicolon = true; //세미콜론이 있다는 것을 표시하고
+		s_answer[strlen(s_answer) - 1] = '\0'; //세미콜론 대신에 널문자를 넣는다.
 	}
 
 	if(!make_tokens(s_answer, tokens)){
@@ -677,13 +669,13 @@ double score_program(char *id, char *filename)
 int is_thread(char *qname)
 {
 	int i;
-	int size = sizeof(threadFiles) / sizeof(threadFiles[0]);
+	int size = sizeof(threadFiles) / sizeof(threadFiles[0]); //threadFiles 행 개수
 
-	for(i = 0; i < size; i++){
-		if(!strcmp(threadFiles[i], qname))
-			return true;
+	for(i = 0; i < size; i++){ //threadFiles 끝까지 검사
+		if(!strcmp(threadFiles[i], qname)) //threadFiles에 qname이 존재할경우
+			return true; //true 리턴
 	}
-	return false;
+	return false; //false 리턴
 }
 
 double compile_program(char *id, char *filename)
@@ -696,22 +688,24 @@ double compile_program(char *id, char *filename)
 	off_t size;
 	double result;
 
-	memset(qname, 0, sizeof(qname));
-	memcpy(qname, filename, strlen(filename) - strlen(strrchr(filename, '.')));
+	memset(qname, 0, sizeof(qname)); //qname 초기화
+	memcpy(qname, filename, strlen(filename) - strlen(strrchr(filename, '.')));//qname에 filename에서 .전까지 복사
 	
-	isthread = is_thread(qname);
+	isthread = is_thread(qname); //threadFiles[]에 있는지 검사하여 그 결과 저장
 
-	sprintf(tmp_f, "%s/%s/%s", ansDir, qname, filename);
-	sprintf(tmp_e, "%s/%s/%s.exe", ansDir, qname, qname);
+	sprintf(tmp_f, "%s/%s", ansDir, filename);
+	sprintf(tmp_e, "%s/%s.exe", ansDir, qname);
 
 	if(tOption && isthread)
 		sprintf(command, "gcc -o %s %s -lpthread", tmp_e, tmp_f);
 	else
 		sprintf(command, "gcc -o %s %s", tmp_e, tmp_f);
 
-	sprintf(tmp_e, "%s/%s/%s_error.txt", ansDir, qname, qname);
+	sprintf(tmp_e, "%s/%s_error.txt", ansDir, qname);
 	fd = creat(tmp_e, 0666);
 
+	//STDERR를 fd도 가리키게 했다가
+	//명령 실행하고 다시 STDERR 본래의 파일 디스크립터로 돌아오게 함
 	redirection(command, fd, STDERR);
 	size = lseek(fd, 0, SEEK_END);
 	close(fd);
@@ -792,10 +786,10 @@ int execute_program(char *id, char *filename)
 	memset(qname, 0, sizeof(qname));
 	memcpy(qname, filename, strlen(filename) - strlen(strrchr(filename, '.')));
 
-	sprintf(ans_fname, "%s/%s/%s.stdout", ansDir, qname, qname);
+	sprintf(ans_fname, "%s/%s.stdout", ansDir, qname);
 	fd = creat(ans_fname, 0666);
 
-	sprintf(tmp, "%s/%s/%s.exe", ansDir, qname, qname);
+	sprintf(tmp, "%s/%s.exe", ansDir, qname);
 	redirection(tmp, fd, STDOUT);
 	close(fd);
 
@@ -924,7 +918,7 @@ void rmdirs(const char *path)
 	struct dirent *dirp;
 	struct stat statbuf;
 	DIR *dp;
-	char tmp[50];
+	char tmp[518];
 	
 	if((dp = opendir(path)) == NULL)
 		return;
