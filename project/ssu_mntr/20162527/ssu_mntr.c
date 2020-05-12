@@ -18,11 +18,13 @@
 typedef struct f_info{
 	char pathname[MAX_PATH];
 	char fname[BUFFER_MAX];
+	time_t deletedtime;
 	time_t mtime;
 } Fileinfo;
 
 void do_monitor();
 int read_files(Fileinfo file_array[ARRAY_MAX], char *pathname, int *amount, int *index);
+int read_trash_files_info(Fileinfo file_array[ARRAY_MAX], char *pathname, int *amount, int *index);
 int daemon_init(void);
 void do_delete(char *command);
 void alarm_handler(int signo);
@@ -498,11 +500,20 @@ void do_delete(char *command){
 void alarm_handler(int signo){
 	FILE *fp;
 	time_t current_time;
+   time_t old_time;
 	struct tm tm_time;
-
+	
+	Fileinfo deleted_file_array[ARRAY_MAX];
+	
+	char pathname[MAX_PATH];
+	char want_delete_pathname[MAX_PATH];
 	char new_pathname_files[MAX_PATH];
 	char new_pathname_info[MAX_PATH];
 	char yesorno;
+
+	int old_file_index = 0;
+	int index = 0;
+	int amount = 0;
 	int do_delete = 1;
 	int i;
 
@@ -591,10 +602,65 @@ void alarm_handler(int signo){
 					}
 				}
 			}
-				
+			memset(pathname, '\0', MAX_PATH);
+			strcpy(pathname, "trash/info");
+			index = 0;
+			amount = 0;
+			while(read_trash_files_info(deleted_file_array, pathname, &amount, &index) >= 2048){ //2키로바이트 넘어섰을 경우
+				old_time = time(NULL); //현재시간 초기값으로 넣어주고
+				for(i = 0; i < amount; i++){ 
+					if(difftime(old_time, deleted_file_array[i].mtime) > 0) { //더 옛날에 삭제된 파일 발견했을 경우
+						old_time = deleted_file_array[i].mtime; //old_time 지금걸로 최신화
+						old_file_index = i; //old_file_index도 최신화
+					}
+				}
+				rmdirs(deleted_file_array[old_file_index].pathname, 1); //info 디렉토리에 있는 오래된 거 삭제
+				sprintf(want_delete_pathname, "%s/%s", "trash/files", deleted_file_array[old_file_index].fname); //file에서 지우고싶은 경로 저장
+				rmdirs(want_delete_pathname, 1); //files에서 오래된거 삭제
+			}
 		}
-
 	}
+}
+int read_trash_files_info(Fileinfo file_array[ARRAY_MAX], char *pathname, int *amount, int *index){
+	struct dirent **dirp;
+	struct stat statbuf;
+	char *ptr;
+	int sum = 0;
+	int count;
+	int idx;
+
+	ptr = pathname + strlen(pathname);
+	*ptr++ = '/';
+	*ptr = '\0';
+	
+	//디렉토리의 파일들 읽는다.
+	if((count = scandir(pathname, &dirp, NULL, alphasort)) == -1){
+		fprintf(stderr, "Directory scan Error\n");
+		exit(1);
+	}
+	
+	//디렉토리 사이즈만큼 반복수행
+	for(idx = 0; idx < count; idx++)
+	{
+		if((!strcmp(dirp[idx]->d_name, ",")) || (!strcmp(dirp[idx]->d_name, ".."))){
+			continue;
+		}
+		lstat(pathname, &statbuf); //파일 정보 받기
+		strcpy(file_array[*index].pathname, pathname); //배열에 파일 경로 넣기
+		strcpy(file_array[*index].fname, dirp[idx]->d_name); //배열에 파일 이름 넣기
+		file_array[*index].mtime = statbuf.st_mtime; //배열에 최종 수정시간 (info안에 파일 만들어진 시간) 저장
+		sum += statbuf.st_size; //파일 사이즈 더해줌
+		*index++;
+		*amount++;
+	}
+
+	for (idx = 0; idx < count; idx++) { //할당 해제
+		free(dirp[idx]);
+	}
+	free(dirp); //할당 해제
+
+	ptr[-1] = 0;
+	return sum; //info 파일들의 총 사이즈 리턴
 }
 
 //path가 파일이면 파일을 삭제하고, path가 디렉토리면 그 하위의 모든 디렉토리와 파일 삭제하는 함수
