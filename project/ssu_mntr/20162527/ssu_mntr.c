@@ -9,6 +9,7 @@
 #include <string.h>
 #include <dirent.h>
 #include <time.h>
+#include <sys/time.h>
 
 #define BUFFER_MAX 256
 #define MAX_PATH 1024
@@ -20,6 +21,7 @@ typedef struct f_info{
 	char fname[BUFFER_MAX];
 	time_t deletedtime;
 	time_t mtime;
+	int fsize;
 } Fileinfo;
 
 void do_monitor();
@@ -29,8 +31,9 @@ int daemon_init(void);
 void do_delete(char *command);
 void alarm_handler(int signo);
 int rmdirs(const char *path, int force);
-void do_size(char *command);
-void do_recover(char *command);
+int do_size(char *command);
+int check_size(Fileinfo file_array[ARRAY_MAX], char *pathname, int goal_depth, int depth, int *amount, int *index);
+int do_recover(char *command);
 int do_tree(char *pathname, int depth);
 void do_help(void);
 
@@ -38,10 +41,12 @@ Fileinfo delete_file_info;
 
 int rOption;
 int iOption;
-int lOption;
 
 int main(void)
 {
+	struct timeval startTime, endTime;
+	double diffTime;
+
 	char command[BUFFER_MAX];
 	char command_first_arg[BUFFER_MAX];
 	char *prompt = "20162527>";
@@ -49,6 +54,8 @@ int main(void)
 
 	int i = 0;
 	int pid;
+	
+	gettimeofday(&startTime, NULL); //시간측정 시작
 
 	//자식 프로세스 생성
 	if ((pid = fork()) < 0) {
@@ -80,33 +87,37 @@ int main(void)
 				command_first_arg[i] = '\0';
 			}
 
-			if (strcmp(command_first_arg, "delete") == 0){
+			if (strcmp(command_first_arg, "delete") == 0){ //delete입력시 실행
 				do_delete(command);
 			}
-			else if (strcmp(command_first_arg, "size") == 0){
+			else if (strcmp(command_first_arg, "size") == 0){ //size입력시 실행
 				do_size(command);
 			}
-			else if (strcmp(command_first_arg, "recover") == 0){
+			else if (strcmp(command_first_arg, "recover") == 0){ //recover입력시 실행
 				do_recover(command);
 			}
-			else if (strcmp(command_first_arg, "tree") == 0){
+			else if (strcmp(command_first_arg, "tree") == 0){ //tree 입력시 실행
 				memset(pathname, '\0', MAX_PATH);
 				strcpy(pathname, "check");
 				do_tree(pathname, 0);
 			}
-			else if (strcmp(command_first_arg, "exit") == 0){
+			else if (strcmp(command_first_arg, "exit") == 0){ //exit 입력시 종료
 				printf("이상 프로그램을 종료합니다.\n");
 				break;
 			}
-			else if (strcmp(command_first_arg, "help") == 0){
+			else if (strcmp(command_first_arg, "help") == 0){ //help 입력시 실행
 				do_help();
 			}
-			else {
+			else { //이상한 명령어 입력하면 help 실행
 				do_help();
 			}
 			printf("\n");
 		}
 	}
+	gettimeofday(&endTime, NULL); //시간측정 종료
+	diffTime = (endTime.tv_sec - startTime.tv_sec ) + (( endTime.tv_usec - startTime.tv_usec ) / 1000000); //소요시간 계산
+	printf("소요시간 : %f sec\n", diffTime);
+
 }
 void do_monitor(){
 	FILE *fp;
@@ -325,7 +336,7 @@ void do_delete(char *command){
 
 	rOption = 0; //r옵션 끄기
 	iOption = 0; //i옵션 끄기
-	
+
 	signal(SIGALRM, alarm_handler); //알람 시그널에 대해 핸들러 설정
 	memset(tmp, '\0', BUFFER_MAX); //명령어 임시로 담을 배열
 	memcpy(tmp, command, strlen(command)); //임시로 담을 배열에 명령 옮겨준다.
@@ -346,12 +357,11 @@ void do_delete(char *command){
 
 	if(arg[1][0] == '\0'){ //파일명 입력 안했을 경우
 		fprintf(stderr, "파일명을 입력해주십시오");
-		exit(1);
 	}
 
 	memset(delete_file_info.pathname, '\0', MAX_PATH); //삭제할 파일의 경로 저장될 문자열 초기화
 	memset(delete_file_info.fname, '\0', BUFFER_MAX); //삭제할 파일의 이름 저장될 문자열 초기화
-	
+
 	memset(arg_pathname, '\0', MAX_PATH);
 	if(!strncmp(arg[1], "/home", 5)){ //절대 경로로 입력받았을 경우
 		strcpy(arg_pathname, arg[1]); //arg_pathname에 그대로 저장
@@ -365,7 +375,7 @@ void do_delete(char *command){
 	}
 
 	realpath(arg_pathname, key_path_resolved); //입력한 파일 절대경로로 바꾼다.
-	
+
 	memset(pathname, '\0', MAX_PATH); //pathname 초기화
 	strcpy(pathname, "check"); //pathname check로 초기화
 	read_files(file_array, pathname, &files_amount, &index); //배열에 파일들 읽어서 저장
@@ -475,7 +485,7 @@ void do_delete(char *command){
 			deleted_time = mktime( &deleted_time_tm ); //tm 타입을 time_t 타입으로 바꾸기
 
 			diff_time = difftime( deleted_time, current_time ); //현재시간과 삭제 시간의 차이를 초로
-			
+
 			if(arg[4][0] == '-') { //옵션이 있는지 검사
 				if(arg[4][1] == 'r')
 					rOption = 1;
@@ -493,18 +503,17 @@ void do_delete(char *command){
 	}
 	else{ //파일을 못 찾았을 경우
 		fprintf(stderr, "there is no file [%s]\n", arg[1]);
-		exit(1);
 	}
 
 }
 void alarm_handler(int signo){
 	FILE *fp;
 	time_t current_time;
-   time_t old_time;
+	time_t old_time;
 	struct tm tm_time;
-	
+
 	Fileinfo deleted_file_array[ARRAY_MAX];
-	
+
 	char pathname[MAX_PATH];
 	char want_delete_pathname[MAX_PATH];
 	char new_pathname_files[MAX_PATH];
@@ -514,12 +523,13 @@ void alarm_handler(int signo){
 	int old_file_index = 0;
 	int index = 0;
 	int amount = 0;
-	int do_delete = 1;
+	int can_delete = 1;
 	int i;
 
 	if(rOption == 1) { //r옵션 켜져있을 경우
 		printf("Delete [y/n]?");
 		scanf("%c", &yesorno);
+		getchar();
 		getchar();
 		if(yesorno == 'y' || yesorno == 'Y'){ //삭제할거라면
 			do_delete = 1;
@@ -529,11 +539,11 @@ void alarm_handler(int signo){
 		}
 	}
 
-	if(do_delete == 1){
+	if(can_delete == 1){
 		if( access("trash", F_OK) < 0 ) { //trash 폴더 없으면 생성
 			mkdir("trash", 0777);
 		}
-	
+
 		if( access("trash/files", F_OK) < 0 ) { //trash/files 없으면 생성
 			mkdir("trash/files", 0777);
 		}
@@ -541,7 +551,7 @@ void alarm_handler(int signo){
 		if( access("trash/info", F_OK) < 0 ) { //trash/info 없으면 생성
 			mkdir("trash/info", 0777);
 		}
-		
+
 		if(iOption == 1){ //i 옵션 켜져있을 경우
 			rmdirs(delete_file_info.pathname, 1); //절대경로 받아온거 그 파일(혹은 디렉토리) 아예 삭제
 		}
@@ -557,15 +567,15 @@ void alarm_handler(int signo){
 					else{ //해당 파일이 존재하지 않는다면 최초 딜리트 파일!
 						rename(delete_file_info.pathname, new_pathname_files); //파일 trash폴더로 이동시킨다.
 						fp = fopen(new_pathname_info, "w"); //쓰기모드로 그 파일 연다.
-					
+
 						fprintf(fp, "[Trash info]\n");
 						fprintf(fp, "%s\n", delete_file_info.pathname); //파일 절대경로 출력
-						
+
 						current_time = time(NULL); //현재시간 저장
 						localtime_r(&current_time, &tm_time); //현재 시간(삭제시간) tm 구조체로 변환
 						fprintf(fp, "D : %04d-%02d-%02d ",tm_time.tm_year+1900, tm_time.tm_mon+1, tm_time.tm_mday);
 						fprintf(fp, "%02d:%02d:%02d\n",tm_time.tm_hour, tm_time.tm_min, tm_time.tm_sec);
-						
+
 						localtime_r(&delete_file_info.mtime, &tm_time); //삭제할 파일의 최종 수정시간 tm 구조체로 변환
 						fprintf(fp, "M : %04d-%02d-%02d ",tm_time.tm_year+1900, tm_time.tm_mon+1, tm_time.tm_mday);
 						fprintf(fp, "%02d:%02d:%02d\n",tm_time.tm_hour, tm_time.tm_min, tm_time.tm_sec);
@@ -577,22 +587,22 @@ void alarm_handler(int signo){
 				else{ //차후 딜리트 파일 순서대로 검사
 					sprintf(new_pathname_files, "%s/%d_%s", "trash/files", i, delete_file_info.fname); //파일에 번호붙여서 새 경로로
 					sprintf(new_pathname_info, "%s/%d_%s", "trash/info", i, delete_file_info.fname); //파일에 번호붙여서 새 경로로
-					
+
 					if(!access(new_pathname_files, F_OK)){ //해당 파일이 이미 trash/files에 존재한다면
 						i++;
 					}
 					else{ //해당 파일이 존재하지 않는다면 그 번호_파일로 trash에 만들어야 한다.
 						rename(delete_file_info.pathname, new_pathname_files); //파일 trash폴더로 이동시킨다.
 						fp = fopen(new_pathname_info, "w"); //쓰기모드로 그 파일 연다.
-					
+
 						fprintf(fp, "[Trash info]\n");
 						fprintf(fp, "%s\n", delete_file_info.pathname); //파일 절대경로 출력
-						
+
 						current_time = time(NULL); //현재시간 저장
 						localtime_r(&current_time, &tm_time); //현재 시간(삭제시간) tm 구조체로 변환
 						fprintf(fp, "D : %04d-%02d-%02d ",tm_time.tm_year+1900, tm_time.tm_mon+1, tm_time.tm_mday);
 						fprintf(fp, "%02d:%02d:%02d\n",tm_time.tm_hour, tm_time.tm_min, tm_time.tm_sec);
-						
+
 						localtime_r(&delete_file_info.mtime, &tm_time); //삭제할 파일의 최종 수정시간 tm 구조체로 변환
 						fprintf(fp, "M : %04d-%02d-%02d ",tm_time.tm_year+1900, tm_time.tm_mon+1, tm_time.tm_mday);
 						fprintf(fp, "%02d:%02d:%02d\n",tm_time.tm_hour, tm_time.tm_min, tm_time.tm_sec);
@@ -632,26 +642,27 @@ int read_trash_files_info(Fileinfo file_array[ARRAY_MAX], char *pathname, int *a
 	ptr = pathname + strlen(pathname);
 	*ptr++ = '/';
 	*ptr = '\0';
-	
+
 	//디렉토리의 파일들 읽는다.
 	if((count = scandir(pathname, &dirp, NULL, alphasort)) == -1){
 		fprintf(stderr, "Directory scan Error\n");
 		exit(1);
 	}
-	
+
 	//디렉토리 사이즈만큼 반복수행
 	for(idx = 0; idx < count; idx++)
 	{
-		if((!strcmp(dirp[idx]->d_name, ",")) || (!strcmp(dirp[idx]->d_name, ".."))){
+		if((!strcmp(dirp[idx]->d_name, ".")) || (!strcmp(dirp[idx]->d_name, ".."))){
 			continue;
 		}
+		strcpy(ptr, dirp[idx]->d_name); //경로의 끝에 현재 검사하려는 파일 이어준다.
 		lstat(pathname, &statbuf); //파일 정보 받기
 		strcpy(file_array[*index].pathname, pathname); //배열에 파일 경로 넣기
 		strcpy(file_array[*index].fname, dirp[idx]->d_name); //배열에 파일 이름 넣기
 		file_array[*index].mtime = statbuf.st_mtime; //배열에 최종 수정시간 (info안에 파일 만들어진 시간) 저장
 		sum += statbuf.st_size; //파일 사이즈 더해줌
-		*index++;
-		*amount++;
+		*index += 1;
+		*amount += 1;
 	}
 
 	for (idx = 0; idx < count; idx++) { //할당 해제
@@ -680,15 +691,15 @@ int rmdirs(const char *path, int force){
 		if(strcmp(file->d_name, ".") == 0 || strcmp(file->d_name, "..") == 0) {
 			continue; //"."과 ".."은 스킵
 		}
-		
+
 		//디렉토리 내의 파일들 경로 이어준다.
 		sprintf(filename, "%s/%s", path, file->d_name);
-		
+
 		//파일 정보 받아서 buf에 저장
 		if(lstat(filename, &buf) == -1) {
 			continue;
 		}
-		
+
 		//디렉토리일 경우
 		if(S_ISDIR(buf.st_mode)){
 			if(rmdirs(filename, force) == -1 && !force) { //재귀적으로 rmdirs 호출
@@ -708,10 +719,331 @@ int rmdirs(const char *path, int force){
 	return rmdir(path); //다 비워진 디렉토리 삭제한다.
 }
 
-void do_size(char *command){
+int do_size(char *command){
+	Fileinfo file_array[ARRAY_MAX];
+	char tmp[BUFFER_MAX];
+	char *ptr;
+	char arg[ARG_MAX][BUFFER_MAX];
+	char pathname[MAX_PATH];
+	
+	int amount=0;
+	int index=0;
+	int goal_depth = 0;
+	int depth = 0;
+	int size;
+	int i;
+
+	memset(tmp, '\0', BUFFER_MAX); //명령어 임시로 담을 배열 초기화
+	memcpy(tmp, command, strlen(command)); //임시로 담을 배열에 명령 옮겨준다.
+	ptr = strtok(tmp, " "); //command 자른다
+
+	for (i = 0; i < ARG_MAX; i++){ //명령어들 임시로 담을 배열 모두 널로 초기화
+		memset(arg[i], '\0', BUFFER_MAX);
+	}
+
+	i = 0;
+
+	while( ptr != NULL ){ //파일명, 옵션 담을 배열에 저장
+		memcpy(arg[i], ptr, strlen(ptr));
+		i++;
+		ptr = strtok(NULL, " ");
+	}
+
+	if(arg[1][0] == '\0'){ //파일명 입력 안했을 경우
+		printf("파일명을 입력하세요\n");
+		return 0;
+	}
+	
+	if(arg[2][0] == '-'){ //옵션 제대로 들어왔는지 검사
+		if(arg[2][1] == 'd'){
+			if(arg[3][0] == '\0'){
+				printf("-d 뒤에 숫자를 입력하세요\n");
+				return 0;
+			}
+			else{
+				goal_depth = atoi(arg[3]);
+			}
+		}
+	}
+	
+	sprintf(pathname, "./%s", arg[1]);
+	strcpy(file_array[index++].pathname, pathname);
+	amount += 1;
+	size = check_size(file_array, pathname, goal_depth, depth, &amount, &index);
+	file_array[0].fsize = size;
+
+	for(i = 0; i < amount; i++)
+	{
+		printf("%-10d %s\n", file_array[i].fsize, file_array[i].pathname);
+	}
+
 }
 
-void do_recover(char *command){
+int check_size(Fileinfo file_array[ARRAY_MAX], char *pathname, int goal_depth, int depth, int *amount, int *index){
+	struct dirent **dirp;
+	struct stat statbuf;
+	char *ptr;
+
+	int count;
+	int sum = 0;
+	int size;
+	int tmp_index;
+	int idx;
+
+	lstat(pathname, &statbuf);
+	if(S_ISDIR(statbuf.st_mode) && goal_depth != -1){ //현재 파일이 디렉토리일 경우
+		
+		ptr = pathname + strlen(pathname); //포인터 맨 끝으로 이동
+		*ptr++ = '/'; //맨 끝에 / 붙여주고
+		*ptr = '\0'; //그 뒤를 널문자로 마무리
+
+		if((count = scandir(pathname, &dirp, NULL, alphasort)) == -1){
+			fprintf(stderr, "scan error\n");
+			exit(1);
+		}
+
+		for(idx = 0; idx < count; idx++){ //파일 차례대로 검사
+			if((!strcmp(dirp[idx]->d_name, ".")) || (!strcmp(dirp[idx]->d_name, ".."))){
+				continue;
+			}
+			strcpy(ptr, dirp[idx]->d_name); //pathname 뒤에 경로 잇는다.
+			lstat(pathname, &statbuf); //그 파일의 정보 저장
+			
+			if(depth < goal_depth){ //목표로하는 단계에 아직 도달하지 못했을 경우
+				strcpy(file_array[*index].pathname, pathname); //배열에 파일 경로 넣기
+				tmp_index = *index; //지금 인덱스 위치 잠시 저장해둔다.
+				*index += 1; //다음 배열에 집어넣게 하기 위해
+				*amount += 1; //배열에 들어간 총량 하나 늘려준다.
+			}
+			size = statbuf.st_size; //일단 그 파일의 사이즈 저장
+
+			if(S_ISDIR(statbuf.st_mode)){ //그 파일이 디렉토리일 경우
+				size = check_size(file_array, pathname, goal_depth, depth+1, amount, index); //사이즈를 하위 파일들 사이즈 다 더한걸로 변경
+			}
+			sum += size; //디렉토리든 그냥 파일이든 사이즈 더해준다.
+			
+			if(depth < goal_depth){ //목표로하는 단계에 아직 도달하지 못했을 경우
+				file_array[tmp_index].fsize = size;
+			}
+		}
+	}
+	else{ //디렉토리가 아닐 경우
+		return statbuf.st_size; 
+	}
+
+	for (idx = 0; idx < count; idx++) { //할당해제
+		free(dirp[idx]);
+	}
+	free(dirp); //할당해제
+
+	ptr[-1] = 0;
+	return sum;
+}
+
+int do_recover(char *command){
+	Fileinfo deleted_file_array[ARRAY_MAX];
+	Fileinfo recover_file_array[ARRAY_MAX];
+	Fileinfo tmp_file;
+
+	FILE *fp;
+
+	char buf[BUFFER_MAX];
+	char tmp[BUFFER_MAX];
+	char *ptr;
+	char arg[ARG_MAX][BUFFER_MAX];
+	char pathname[MAX_PATH];
+	char recover_pathname[MAX_PATH];
+	char origin_pathname[MAX_PATH];
+	char new_pathname[MAX_PATH];
+	char old_pathname[MAX_PATH];
+
+	int index;
+	int amount = 0;
+	int is_in_array = 0;
+	int recover_ok = 0;
+	int choose = 0;
+	int i, j;
+
+
+	memset(tmp, '\0', BUFFER_MAX); //명령어 임시로 담을 배열 초기화
+	memcpy(tmp, command, strlen(command)); //임시로 담을 배열에 명령 옮겨준다.
+	ptr = strtok(tmp, " "); //command 자른다
+
+	for (i = 0; i < ARG_MAX; i++){ //명령어들 임시로 담을 배열 모두 널로 초기화
+		memset(arg[i], '\0', BUFFER_MAX);
+	}
+
+	i = 0;
+
+	while( ptr != NULL ){ //파일명, 옵션 담을 배열에 저장
+		memcpy(arg[i], ptr, strlen(ptr));
+		i++;
+		ptr = strtok(NULL, " ");
+	}
+
+
+
+	if(arg[1][0] == '\0'){ //파일명 입력 안했을 경우
+		fprintf(stderr, "파일명을 입력해주십시오\n");
+		return 0;
+	}
+	if(arg[2][0] == '-'){
+		if(arg[2][1] == 'l'){
+			printf("l옵션은 미구현 상태입니다.\n");
+			return 0;
+		}
+	}
+	memset(pathname, '\0', MAX_PATH);
+	strcpy(pathname, "trash/info");
+	index = 0;
+	amount = 0;
+	read_trash_files_info(deleted_file_array, pathname, &amount, &index);
+	i = 0;
+	while(1){ //검색하려는게 trash 상에 있는지 찾는 과정
+		if(i == 0){ //최초 딜리트 파일인거
+			sprintf(recover_pathname, "%s/%s", "trash/info", arg[1]);
+			if(!access(recover_pathname, F_OK)){ //파일이 존재할 경우
+				is_in_array = 1;
+				break;
+			}
+			else //파일이 존재하지 않을 경우
+				i++;
+		}
+		else{ //최초 딜리트 파일 아닌거
+			sprintf(recover_pathname, "%s/%d_%s", "trash/info", i, arg[1]);
+			if(!access(recover_pathname, F_OK)){ //파일이 존재할 경우
+				is_in_array = 1;
+				break;
+			}
+			else{ //존재하지 않을 경우
+				i++;
+				if(i > 10){ //10개까지 검사했는데도 없다는건 없다는걸로 판단하겠음.
+					break;
+				}
+			}
+		}
+	}
+	if(is_in_array == 1){ //파일이 존재할 경우
+		if((fp = fopen(recover_pathname, "r")) < 0) { //파일 읽기모드로 열기
+			fprintf(stderr, "fopen error for %s\n", recover_pathname);
+			exit(1);
+		}
+		fgets(buf, BUFFER_MAX, fp); //읽은거 첫번째 행은 무시해주고
+		fgets(buf, BUFFER_MAX, fp); //다음줄 (절대경로 읽는다)
+		ptr = buf+ strlen(buf);
+		*(ptr-1) = '\0'; //버프에 저장된 개행을 널문자로 바꿔준다.
+		memset(origin_pathname, '\0', MAX_PATH); //원래 절대경로 저장할 문자열 초기화
+		strcpy(origin_pathname, buf); //절대경로 origin_pathname에 저장한다.
+		fclose(fp); //받을거 받았으니 파일 닫아준다.
+
+
+		//입력한 파일명 시작하는부분으로 포인터 이동한다.
+		if((ptr = strstr(origin_pathname, arg[1])) == NULL){ //못찾았다면
+			fprintf(stderr, "there is no file [%s]\n", arg[1]);
+			exit(1);
+		}
+		else{ //찾았다면
+			ptr[-1] = '\0'; //입력한 파일명 전의 경로를 접근하는지 판단하기 위해 파일명 부분을 널로 끊어준다.
+			if(!access(origin_pathname, F_OK)){ //경로에 접근할 수 있을 경우
+				recover_ok = 1; //복구할 수 있다고 표시
+			}
+			else{ //경로에 접근할 수 없는 경우
+				fprintf(stderr, "can't recover [%s]\n", arg[1]);
+				exit(1);
+			}
+		}
+
+	}
+	else{ //파일이 존재하지 않을 경우
+		fprintf(stderr, "there is no file [%s]\n", arg[1]);
+	}
+
+	if(recover_ok == 1){
+		index = 0;
+		for(i = 0; i < amount; i++){
+			fp = fopen(deleted_file_array[i].pathname, "r"); //info에 저장된 파일 하나 오픈한다.
+
+			fgets(buf, BUFFER_MAX, fp); //읽은거 첫번째 행은 무시하고
+			fgets(buf, BUFFER_MAX, fp); //다음줄 (절대경로) 읽는다.
+			ptr = buf + strlen(buf);
+			*(ptr-1) = '\0'; //버프에 저장된 개행을 널문자로 바꿔준다.
+			memset(origin_pathname, '\0', MAX_PATH); //원래 절대경로 저장할 문자열 초기화
+			strcpy(origin_pathname, buf); //절대경로 origin_pathname에 저장한다.
+
+			if((ptr = strstr(origin_pathname, arg[1])) == NULL){ //입력한거가 없다면
+				fclose(fp);
+				continue;
+			}
+			else{ //입력한거를 절대경로에서 찾았다면
+				recover_file_array[index] = deleted_file_array[i]; //찾은거만을 배열에 따로 저장해준다.
+				index++;
+				fclose(fp);
+			}
+		}
+		if(index != 1){ //파일이 여러개 있을 경우
+			for(i = 0; i < index; i++){ //찾은 배열들을 출력해주는 반복
+				printf("%d. %s ", i+1, arg[1]);
+				fp = fopen(recover_file_array[i].pathname, "r");
+
+				fgets(buf, BUFFER_MAX, fp); //읽은거 첫번째 행은 무시하고
+				fgets(buf, BUFFER_MAX, fp); //다음줄도 무시
+
+				fgets(buf, BUFFER_MAX, fp); //다음줄 (삭제된 시간) 읽는다.
+				ptr = buf + strlen(buf);
+				*(ptr-1) = '\0'; //버프에 저장된 개행을 널문자로 바꿔준다.
+				printf("%s ", buf);
+
+				fgets(buf, BUFFER_MAX, fp); //다음줄 (최종 수정 시간) 읽는다.
+				ptr = buf + strlen(buf);
+				*(ptr-1) = '\0'; //버프에 저장된 개행을 널문자로 바꿔준다.
+				printf("%s \n", buf);
+
+				fclose(fp);
+
+			}
+
+			printf("Choose : ");
+			scanf("%d", &choose);
+			getchar(); //버퍼 비워주기
+		}
+		else{ //파일이 하나만 있을 경우
+			choose = 1;
+		}
+		fp = fopen(recover_file_array[choose-1].pathname, "r"); //고른 파일 연다.
+		fgets(buf, BUFFER_MAX, fp); //읽은거 첫번째 행은 무시하고
+		fgets(buf, BUFFER_MAX, fp); //다음줄 (절대경로) 읽는다.
+		ptr = buf + strlen(buf);
+		*(ptr-1) = '\0'; //버프에 저장된 개행을 널문자로 바꿔준다.
+		ptr = strstr(buf, arg[1]); //버프에서 인자로 넘겨준거 찾는다.
+		ptr[-1] = '\0'; //입력한 파일명 전의 경로를 알기 위해 파일명 부분을 널로 끊어준다.
+		i = 0;
+		while(1){
+			if(i == 0){ //첫번째 파일인지 검사
+				sprintf(new_pathname, "%s/%s", buf, arg[1]); //숫자 안붙인 복구파일
+				if(!access(new_pathname, F_OK)){ //이미 있는 경우
+					i++; //그 다음거 검사하게
+				}
+				else{ //존재하지 않는 경우
+					break;
+				}
+			}
+			else{ //그 이후 파일들 검사
+				sprintf(new_pathname, "%s/%d_%s", buf, i, arg[1]); //숫자 붙인 복구파일
+				if(!access(new_pathname, F_OK)){ //이미 있는 경우
+					i++; //그 다음거 검사하게
+				}
+				else{ //존재하지 않는 경우
+					break;
+				}
+			}
+		}
+
+		sprintf(old_pathname, "%s/%s", "trash/files", recover_file_array[choose-1].fname);
+		rename(old_pathname, new_pathname); //파일 원래 경로로 복구시킨다.
+		fclose(fp); //info 파일 삭제하기 전에 일단 닫는다.
+		rmdirs(recover_file_array[choose-1].pathname, 1); //info 파일도 삭제시킨다.
+
+	}
 }
 
 int do_tree(char *pathname, int depth){
@@ -824,5 +1156,18 @@ int do_tree(char *pathname, int depth){
 }
 
 void do_help(void){
-	printf("도움말\n");
+	printf("Usage : Operation\n");
+	printf("Operation : \n");
+	printf("delete <pathname> <END_TIME> <OPTION> : 지정한 시간에 파일 check 폴더에서 지워주는 기능\n");
+	printf("<pathname> : 절대경로, check 내부의 상대경로 둘다 가능(check/ 앞에 붙이지 않은 상대경로\n");
+	printf("<END_TIME> : 안쓰면 바로 delete, 날짜만 쓰면 그 날짜 00시 00분에, 날짜와 시간 둘다 쓰면 그 날짜 그 시간에\n");
+	printf("<OPTION> : -r = 지정한 시간에 삭제 시 삭제 여부 재 확인\n");
+	printf("         : -i = 삭제시 \"trash\" 디렉토리로 삭제 파일과 정보 이동시키지 않고 파일 삭제\n");
+	printf("size <FILENAME> <OPTION> : 파일 크기, 상대경로 출력하는 명령어\n");
+	printf("<FILENAME> : check부터 시작하는 상대경로 입력. ex) check/~~~\n");
+	printf("<OPTION> : -d NUMBER = NUMBER 단계만큼의 하위 디렉토리까지 출력\n");
+	printf("RECOVER <FILENAME> <OPTION> : trash로 넘어간 삭제된 파일을 원래 상태로 복귀시키는 기능\n");
+	printf("<FILENAME> : trash 안에 저장된 파일 이름, 삭제되기 전 상태의 이름을 입력해야 함\n");
+	printf("<OPTION> : -l = 미구현 항목\n");
+	printf("tree : \"check\"디렉토리의 구조를 tree 형태로 보여주는 명령어\n");
 }

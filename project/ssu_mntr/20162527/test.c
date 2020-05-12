@@ -6,8 +6,10 @@
 int main(void)
 {
 	char path_resolved[1000];
-	
-	realpath("a.c", path_resolved);
-
-	printf("%s\n", path_resolved);
+	char *ptr;
+	fgets(path_resolved, 1000, stdin);
+	ptr = path_resolved + strlen(path_resolved);
+	printf("%d\n", strlen(path_resolved));
+	*(ptr-1) = '\0';
+	printf("%s", path_resolved);
 }
