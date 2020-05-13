@@ -1,4 +1,0 @@
-[Trash info]
-/home/ingyu/LSP/project/ssu_mntr/20162527/check/b.txt
-D : 2020-05-13 05:29:22
-M : 2020-05-13 05:17:05
