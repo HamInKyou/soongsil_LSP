@@ -7,28 +7,36 @@
 #include <sys/fcntl.h>
 #include <utime.h>
 #include <dirent.h>
+#include <signal.h>
 
 #define BUFFER_SIZE 1024
 #define PATH_SIZE 128
 
 //함수들
 void printUsage();
-void canAccess(char *src, char *dst);
-void do_rsync(char *src, char *dst);
-void create_rsync_file(char *src, char *pathname);
-int check_dir_modifies(char *src, char *pathname);
+void canAccess();
+void do_rsync();
+void create_rsync_file();
+int check_dir_modifies();
 int rmdirs(const char *path, int force);
-void create_rsync_dir(char *src, char *pathname);
+void create_rsync_dir();
+static void signal_handler(int signo);
 
 //전역변수들
+char src[PATH_SIZE] = {'\0',};
+char dst[PATH_SIZE] = {'\0',};
+
+char dstpathname[PATH_SIZE] = {'\0',};
+char pathname[PATH_SIZE] = {'\0',};
+char filename[PATH_SIZE] = {'\0',};
+char tmppathname[PATH_SIZE] = {'\0',};
+
 int rOption = 0;
 int tOption = 0;
 int mOption = 0;
 
 int main(int argc, char *argv[])
 {	
-	char src[PATH_SIZE];
-	char dst[PATH_SIZE];
 	int c;
 
 	
@@ -67,8 +75,8 @@ int main(int argc, char *argv[])
 		realpath(argv[3], dst); //dst 절대경로로 바꿔주기
 	}
 
-	canAccess(src, dst); //src, dst 접근 가능한지?
-	do_rsync(src, dst); //동기화 실행
+	canAccess(); //src, dst 접근 가능한지?
+	do_rsync(); //동기화 실행
 }
 
 //Usage 출력
@@ -82,7 +90,7 @@ void printUsage(){
 
 //src, dst 존재하는지? 접근 가능하는지? 판단
 //접근 불가능할 경우 Usage 출력하고 프로그램 끝냄
-void canAccess(char *src, char *dst){
+void canAccess(){
 	struct stat statbuf;
 
 	if(access(src, F_OK) != 0){ //src가 존재하는지?
@@ -107,10 +115,8 @@ void canAccess(char *src, char *dst){
 		exit(1);
 	}
 }
-void do_rsync(char *src, char *dst){
-	char pathname[PATH_SIZE];
-	char filename[PATH_SIZE];
-	char tmppathname[PATH_SIZE];
+
+void do_rsync(){
 	struct stat srcstatbuf;
 	struct stat dststatbuf;
 	char *ptr;
@@ -121,17 +127,20 @@ void do_rsync(char *src, char *dst){
 	
 	stat(src, &srcstatbuf); //src 파일정보 받아오기
 
+	signal(SIGINT, signal_handler); //시그널 핸들러 등록
+	strcpy(dstpathname, pathname); //시그널에서 원래 목표 패스경로 저장하기 위해
+
 	if(S_ISDIR(srcstatbuf.st_mode)){ //src가 디렉토리일 경우
 		if(access(pathname, F_OK) == 0){ //dst에 동기화된 디렉토리가 이미 있을 경우
-			if(check_dir_modifies(src, pathname)){ //최종 수정시간 다른 파일이 디렉토리에 있을 경우
+			if(check_dir_modifies()){ //최종 수정시간 다른 파일이 디렉토리에 있을 경우
 				sprintf(tmppathname, "%s/tmp_%s", dst, filename); //임시 디렉토리 이름 만들기
 				rename(pathname, tmppathname); //임시 디렉토리로 저장
-				create_rsync_dir(src, pathname); //동기화 진행
+				create_rsync_dir(); //동기화 진행
 				rmdirs(tmppathname, 1); //임시로 만든거 지우기
 			}
 		}
 		else{ //dst에 동기화된 디렉토리가 없을 경우
-			create_rsync_dir(src, pathname); //동기화 진행
+			create_rsync_dir(); //동기화 진행
 		}
 	}
 	else{ //src가 디렉토리가 아닐 경우
@@ -140,17 +149,17 @@ void do_rsync(char *src, char *dst){
 			if(srcstatbuf.st_mtime != dststatbuf.st_mtime){ //최종 수정시간 다를경우
 				sprintf(tmppathname, "%s/tmp_%s", dst, filename); //임시 파일 이름 만들기
 				rename(pathname, tmppathname); //임시 파일로 저장
-				create_rsync_file(src, pathname); //새로 dst에 파일 만들어줌
+				create_rsync_file(); //새로 dst에 파일 만들어줌
 				unlink(tmppathname); //임시파일 지워준다.
 			}
 		}
 		else{ //dst에 동기화된 파일이 없을 경우
-			create_rsync_file(src, pathname);
+			create_rsync_file();
 		}
 	}
 }
 
-void create_rsync_file(char *src, char *pathname){
+void create_rsync_file(){
 	FILE *srcfp;
 	FILE *dstfp;
 	struct stat srcstatbuf;
@@ -181,7 +190,7 @@ void create_rsync_file(char *src, char *pathname){
 	utime(pathname, &time_buf);
 }
 
-int check_dir_modifies(char *src, char *pathname){
+int check_dir_modifies(){
 	struct dirent **dirp1;
 	struct dirent **dirp2;
 	struct stat srcstatbuf;
@@ -285,7 +294,7 @@ int rmdirs(const char *path, int force){
 }
 
 
-void create_rsync_dir(char *src, char *pathname){
+void create_rsync_dir(){
 	struct dirent **dirp;
 	struct stat statbuf;
 	char *srcptr;
@@ -320,7 +329,7 @@ void create_rsync_dir(char *src, char *pathname){
 		//경로의 끝에 동기화해서 두고싶은 파일의 경로를 이어준다.
 		strcpy(dstptr, dirp[idx]->d_name);
 		//파일 동기화해준다.
-		create_rsync_file(src, pathname);
+		create_rsync_file();
 	}
 
 	for(idx = 0; idx <count; idx++) //할당해제
@@ -329,4 +338,19 @@ void create_rsync_dir(char *src, char *pathname){
 
 	srcptr[-1] = 0;
 	dstptr[-1] = 0;
+}
+
+//SIGINT 처리하기 위한 함수
+static void signal_handler(int signo){
+	//임시 파일 생성 안되어있을 경우, 동기화된 파일이 dst에 없는 상태였다고 판단
+	//동기화 중인 파일을 지워버린다.
+	if(tmppathname[0] == '\0'){ 
+		rmdirs(dstpathname, 1); //동기화 중인거 지운다.
+	}
+	else{ //임시 파일 생성 되어있을 경우
+		rmdirs(dstpathname, 1); //동기화 중인거 지우고
+		rename(tmppathname, dstpathname); //임시 파일을 다시 돌려놓기
+	}
+
+	exit(0); //끝내기
 }
