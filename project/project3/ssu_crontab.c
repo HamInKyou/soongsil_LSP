@@ -13,6 +13,7 @@ int command_separation(char *line, int argc, char (*argv)[BUFFER_SIZE]);
 void file_read(); //파일을 읽어서 배열에 담아주는 함수
 int get_next_token();
 int expr();
+int term();
 int factor();
 int do_add(int argc, char (*argv)[BUFFER_SIZE]);
 int do_remove(int argc, char (*argv)[BUFFER_SIZE]);
@@ -23,18 +24,19 @@ typedef enum{MIN=1, HOUR, DATE, MON, DAYOFWEEK} modes; //실행주기 구분하�
 modes mode;
 
 FILE *fp;
+char *fname = "ssu_crontab_file";
 char commandbuf_arr[MAX_EXPR_SIZE][BUFFER_SIZE]; //명령어 담기 위한 배열
 char exprbuf[MAX_EXPR_SIZE]; //실행주기 구분하여 임시로 담기 위한 배열
 char tokenbuf[10]; //토큰 담기 위한 배열
+int num;
 int j = 0;
 int arrSize = 0;
 
 int main(void){
-	char *fname = "ssu_crontab_file";
 	int i;
 
 	fp = fopen(fname, "a");
-	fp = freopen(fname, "r+", fp);
+	fclose(fp);
 
 	while(1){
 		char line[BUFFER_SIZE]; //command 담기 위한 배열
@@ -110,6 +112,8 @@ void file_read(){
 	char buf[BUFFER_SIZE];
 	int i = 0;
 	
+	fp = fopen(fname, "r+");
+	
 	fseek(fp, 0, SEEK_SET);
 	while (fgets(buf, BUFFER_SIZE, fp) != NULL){
 		memset(commandbuf_arr[i], 0, BUFFER_SIZE); //담기 전에 초기화
@@ -117,12 +121,13 @@ void file_read(){
 		i++;
 	}
 	arrSize = i; //array에 몇개 명령 들어갔는지
+	
+	fclose(fp);
 }
 
 //토큰 얻는 함수
 int get_next_token(){
 	int i = 0;
-	int num = 0;
 	tokenbuf[i++] = exprbuf[j++]; //시간주기에 있는걸 한글자씩 토큰으로 옮겨옴
 	if(tokenbuf[0] == '/'){ //토큰 SLASH 구분
 		token = SLASH;
@@ -163,7 +168,6 @@ int get_next_token(){
 			if(num < 0 || num > 6)
 				return -1;
 		}
-		
 		token = NUMBER;
 	}
 	else if(tokenbuf[0] == 0){ //배열의 끝일 시에 토큰 END로
@@ -175,31 +179,83 @@ int get_next_token(){
 	return 1;
 }
 
-//토큰 '/' , '-', ','로 구분하는 첫번째 함수
+//토큰 ','로 구분하는 우선순위 제일 낮은 함수
 int expr(){
 	int isOk;
-	if((isOk = factor()) == -1) //factor 받는다.
+	if((isOk = term()) == -1) //factor 받는다.
 		return -1;
-	while(token == SLASH || token == BAR || token == COMMA){
+	while(token == COMMA){
 		if(get_next_token() == -1) //다음 토큰을 받는다.
 			return -1;
-		if(factor() == -1) //그 다음 토큰으로 factor 받는다.
+		if(term() == -1) //그 다음 토큰으로 factor 받는다.
 			return -1;
 	}	
 	return 1;
 }
 
-//숫자 혹은 *을 받기 위한 두번째 함수
+//토큰 '/', '-'로 구분하는 우선순위 그 다음 높은 함수
+int term(){
+   int num1, num2, num3;
+   int range;
+   num1 = factor();
+   if(num1 == -1) //팩터 이상한거 골랐을 경우
+      return -1; 
+   else if(num1 == -2){ //팩터가 *일 경우
+      if(token == BAR) //BAR는 * 다음에 나오면 안되니까 맞지 않음!
+         return -1; 
+      else if(token == SLASH){ //SLASH가 나왔을 경우
+         if(get_next_token() == -1) 
+            return -1; 
+         //다음 토큰으로 이상한거나 별 나왔을 경우 (별은 SLASH다음 올 수 없음)
+         if((num2 = factor())==-1 || num2 == -2) 
+            return -1; 
+      }   
+   }   
+   else{ //팩터가 숫자일 경우
+      if(token == BAR){ //뒤에 BAR 왔을 경우
+         if(get_next_token() == -1) 
+            return -1; 
+         //다음 토큰으로 이상한거나 별 나왔을 경우 (별은 BAR다음 올 수 없음)
+         if((num2 = factor()) == -1 || num2 == -2) 
+            return -1; 
+         if(num1 > num2) // BAR 앞에게 뒤에거보다 클 경우
+            return -1; 
+         if(token == SLASH){ // num1-num2/ 형태로 나왔을 경우
+            range = num2 - num1 + 1; //num3 쓸 수 있는 범위
+            if(get_next_token() == -1) 
+               return -1; 
+            //다음 토큰으로 이상한거나 별 나왔을 경우 (별은 SLASH다음 올 수 없음)
+            if((num3 = factor()) == -1 || num3 == -2) 
+               return -1; 
+            if(num3 < 0 || num3 > range)
+               return -1;
+         }
+      }
+      else if(token == SLASH) //숫자 바로 뒤에 SLASH가 오지 못함
+         return -1;
+   }
+   return 1;
+}
+
+//숫자 혹은 *을 받기 위한 우선순위 제일 높은 함수
 int factor(){
-	if(token == NUMBER) { //토큰이 숫자면 다음거 읽기
+	int r;
+
+	//숫자일 경우 숫자 리턴
+	if(token == NUMBER) { 
 		if(get_next_token() == -1)
 			return -1;
+		r = num;
+		return r;
 	}
-	else if(token == STAR) { //토큰이 별이면 다음거 읽기
+	//STAR일 경우 -2 리턴
+	else if(token == STAR) {
 		if(get_next_token() == -1)
 			return -1;
+		return -2;
 	}
-	else{ //숫자나 별이 아니면 그만하고 에러 출력하게
+	//둘 중 아무것도 아닐 경우 -1 리턴
+	else{
 		return -1;
 	}
 }
@@ -224,9 +280,10 @@ int do_add(int argc, char (*argv)[BUFFER_SIZE]){
 	}
 
 	//반복문 무사히 마쳤다는 것은 실행주기에 문제가 없다는 것.
-
+	fp = fopen(fname, "r+");
 	fseek(fp, 0, SEEK_END); //맨 끝으로 이동
 	fprintf(fp, "%s %s %s %s %s %s\n", argv[1], argv[2], argv[3], argv[4], argv[5], argv[6]); //명령문 추가
+	fclose(fp);
 }
 
 int do_remove(int argc, char (*argv)[BUFFER_SIZE]){
@@ -243,6 +300,8 @@ int do_remove(int argc, char (*argv)[BUFFER_SIZE]){
 	}
 	memset(commandbuf_arr[arrSize-1], 0, BUFFER_SIZE); //땡겨와서 필요없어진 끝에거 비우기
 	arrSize -= 1; //arrSize 하나 줄인다.
+	
+	fp = fopen(fname, "r+");
 
 	fd = fileno(fp);
 	ftruncate(fd, 0); //파일의 내용 다 지워주고 사이즈를 0으로 해준다.
@@ -252,6 +311,8 @@ int do_remove(int argc, char (*argv)[BUFFER_SIZE]){
 	for(i = 0; i < arrSize; i++){
 		fprintf(fp, "%s\n", commandbuf_arr[i]);
 	}
+
+	fclose(fp);
 
 	return 1;
 }
