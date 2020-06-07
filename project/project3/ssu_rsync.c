@@ -8,9 +8,16 @@
 #include <utime.h>
 #include <dirent.h>
 #include <signal.h>
+#include <time.h>
 
 #define BUFFER_SIZE 1024
 #define PATH_SIZE 128
+#define FILE_AMOUNT 100
+
+typedef struct f_info{
+	char fname[BUFFER_SIZE];
+	int fsize;
+} Fileinfo;
 
 //함수들
 void printUsage();
@@ -23,6 +30,8 @@ void create_rsync_dir();
 static void signal_handler(int signo);
 
 //전역변수들
+Fileinfo rsync_files_info[FILE_AMOUNT];
+
 char src[PATH_SIZE] = {'\0',};
 char dst[PATH_SIZE] = {'\0',};
 
@@ -31,13 +40,19 @@ char pathname[PATH_SIZE] = {'\0',};
 char filename[PATH_SIZE] = {'\0',};
 char tmppathname[PATH_SIZE] = {'\0',};
 
+int arraySize = 0;
+
 int rOption = 0;
 int tOption = 0;
 int mOption = 0;
 
 int main(int argc, char *argv[])
 {	
+	FILE *fp;
+	time_t currentTime;
+	char timeStr[25] = {'\0',};
 	int c;
+	int i;
 
 	
 	//옵션 인자 받는다.
@@ -77,6 +92,15 @@ int main(int argc, char *argv[])
 
 	canAccess(); //src, dst 접근 가능한지?
 	do_rsync(); //동기화 실행
+
+	time(&currentTime);
+	strncpy(timeStr, ctime(&currentTime), strlen(ctime(&currentTime))-1);
+	fp = fopen("ssu_rsync_log", "a");
+	fprintf(fp, " [%s] %s %s %s\n", timeStr, argv[0], argv[1], argv[2]);
+	for(i = 0; i <arraySize; i++){
+		fprintf(fp, "         %s %dbytes\n", rsync_files_info[i].fname, rsync_files_info[i].fsize);
+	}
+	fclose(fp);
 }
 
 //Usage 출력
@@ -162,6 +186,7 @@ void do_rsync(){
 void create_rsync_file(){
 	FILE *srcfp;
 	FILE *dstfp;
+	char *ptr;
 	struct stat srcstatbuf;
 	struct stat dststatbuf;
 	struct utimbuf time_buf;
@@ -188,6 +213,12 @@ void create_rsync_file(){
 	time_buf.modtime = srcstatbuf.st_mtime;
 
 	utime(pathname, &time_buf);
+
+	ptr = rindex(src, '/') + 1; //src 파일이름 시작되는 곳
+
+	strcpy(rsync_files_info[arraySize].fname, ptr); //파일 이름 rsync_files_info 구조체에 저장
+	rsync_files_info[arraySize].fsize = srcstatbuf.st_size; //파일 사이즈도 저장
+	arraySize++; //rsync_files_info 구조체에 저장된 파일 수 1 증가
 }
 
 int check_dir_modifies(){

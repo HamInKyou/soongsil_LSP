@@ -5,7 +5,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/fcntl.h>
-#include <time.h>
 
 #define BUFFER_SIZE 1024
 #define MAX_EXPR_SIZE 100
@@ -59,7 +58,6 @@ int main(void){
 		if(!strcmp(argv[0], "add")){
 			if(do_add(argc, argv) == -1) //명령어 기록 실행
 				printf("wrong command!\n");
-
 		}
 		else if(!strcmp(argv[0], "remove")){
 			if(do_remove(argc, argv) == -1)
@@ -264,8 +262,6 @@ int factor(){
 
 //명령어 추가하는 add함수
 int do_add(int argc, char (*argv)[BUFFER_SIZE]){
-	time_t currentTime;
-	char timeStr[25] = {'\0',};
 	int i;
 	int isOk1, isOk2; 
 
@@ -288,20 +284,9 @@ int do_add(int argc, char (*argv)[BUFFER_SIZE]){
 	fseek(fp, 0, SEEK_END); //맨 끝으로 이동
 	fprintf(fp, "%s %s %s %s %s %s\n", argv[1], argv[2], argv[3], argv[4], argv[5], argv[6]); //명령문 추가
 	fclose(fp);
-	
-	time(&currentTime);
-	strncpy(timeStr, ctime(&currentTime), strlen(ctime(&currentTime))-1);
-	fp = fopen("ssu_crontab_log", "a");
-	fprintf(fp, " [%s] add %s %s %s %s %s %s\n", timeStr, argv[1], argv[2], argv[3], argv[4], argv[5], argv[6]);
-	fclose(fp);
-
-	return 1;
 }
 
 int do_remove(int argc, char (*argv)[BUFFER_SIZE]){
-	time_t currentTime;
-	char timeStr[25] = {'\0',};
-	char wantDeleteStr[BUFFER_SIZE] = {'\0',};
 	int wantDeleteIndex = 0;
 	int fd;
 	int i;
@@ -310,7 +295,6 @@ int do_remove(int argc, char (*argv)[BUFFER_SIZE]){
 		return -1;
 	
 	for(i = wantDeleteIndex; i < arrSize - 1; i++){
-		strcpy(wantDeleteStr, commandbuf_arr[i]); //지울 내용 임시 저장
 		memset(commandbuf_arr[i], 0, BUFFER_SIZE); //담기 전에 내용 비우기
 		strcpy(commandbuf_arr[i], commandbuf_arr[i+1]); //그 다음거를 땡겨온다.
 	}
@@ -328,12 +312,6 @@ int do_remove(int argc, char (*argv)[BUFFER_SIZE]){
 		fprintf(fp, "%s\n", commandbuf_arr[i]);
 	}
 
-	fclose(fp);
-	
-	time(&currentTime);
-	strncpy(timeStr, ctime(&currentTime), strlen(ctime(&currentTime))-1);
-	fp = fopen("ssu_crontab_log", "a");
-	fprintf(fp, " [%s] remove %s\n", timeStr, wantDeleteStr);
 	fclose(fp);
 
 	return 1;
