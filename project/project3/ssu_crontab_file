@@ -1,5 +1,5 @@
-* * * * * echo
-* * * * * echo 4
-3,4,5 4-8 2-9/2 * 1,3-4,5 echo 7
-* * * * * echo 9
-* * * * * echo 12
+* * * * * echo "*" > echomsg.txt
+40-42 * * * * echo "40-42" > echomsg.txt
+43-49/3 * * * * echo "43-49/3" > echomsg.txt
+43,46,47 * * * * echo "43,46,47"  echomsg.txt
+*/5 * * * * echo "*/5" > echomsg.txt

@@ -54,7 +54,7 @@ int arrSize = 0; //명령어 총 개수
 int cur_index = 0; //명령어를 구조체로 바꾸는데, 현재 인덱스
 
 int main(void){
-	int i;
+	int i, k;
 	time_t current_time;
 	struct tm tm_time;
 	
@@ -137,18 +137,18 @@ int daemon_init(void){
 }
 
 int command_separation(char *line, int argc, char (*argv)[BUFFER_SIZE]){
-	int j = 0;
+	int k = 0;
 	for(int i = 0; i < (int)strlen(line); i++) //문자 하나씩 검사
 	{
 		if(line[i] == ' '){ //공백이 나오면
 			if(argc < 5){ //주기 입력하는 부분일 경우
 				argc++; //다음 단위 검사하도록
-				j = 0; //다음 단위 첫번째부터 argv에 저장하도록
+				k = 0; //다음 단위 첫번째부터 argv에 저장하도록
 				continue;
 			}
 		}
-		argv[argc][j] = line[i]; //한글자씩 현재 단위 argv에 저장
-		j++;
+		argv[argc][k] = line[i]; //한글자씩 현재 단위 argv에 저장
+		k++;
 	}
 	argc++; //반복문 끝났을 경우 argc는 명령부분은 체크 안했기 때문에 +1해준다.
 	return argc;
@@ -192,7 +192,6 @@ void charTostruct(int argc, char (*argv)[BUFFER_SIZE]){ //문자열을 구조체
 
 	for(i = 0; i < 5; i++){ //실행주기 차례대로 검사
 		j = 0;
-
 		strcpy(exprbuf, argv[i]); //현재 검사할 실행주기 exprbuf에 복사
 		mode = i+1;
 
@@ -221,11 +220,11 @@ int get_next_token(){
 		token = STAR;
 	}
 	else if(tokenbuf[0] >= '0' && tokenbuf[0] <= '9'){ //토큰 NUMBER 구분
-		while(exprbuf[i] >= '0' && exprbuf[i] <= '9'){
+		while(exprbuf[j] >= '0' && exprbuf[j] <= '9'){
 			tokenbuf[i++] = exprbuf[j++];
 		}
+		tokenbuf[i] = '\0';
 		num = atoi(tokenbuf);
-
 		//현재 검사중인 시간 주기에 따라 숫자 범위 넘어가면 그만하고 에러 출력하게
 		if(mode == MIN){
 			if(num < 0 || num > 59)

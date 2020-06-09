@@ -1,28 +1,26 @@
-[Mon Jun  8 03:08:54 202] add * * * * * echo 11
-[Mon Jun  8 03:09:18 202] remove 
-[Mon Jun  8 03:11:22 2020] add * * * * * echo 12
-[Mon Jun  8 03:11:38 2020] remove * * * * * echo 11
- [Tue Jun  9 05:42:00 2020] run echo
- [Tue Jun  9 05:42:00 2020] run echo 4
- [Tue Jun  9 05:42:00 2020] run echo 9
- [Tue Jun  9 05:42:00 2020] run echo 12
- [Tue Jun  9 05:44:00 2020] run * * * * * echo
- [Tue Jun  9 05:44:00 2020] run * * * * * echo 4
- [Tue Jun  9 05:44:00 2020] run * * * * * echo 9
- [Tue Jun  9 05:44:00 2020] run * * * * * echo 12
- [Tue Jun  9 16:17:00 2020] run * * * * * echo
- [Tue Jun  9 16:17:00 2020] run * * * * * echo 4
- [Tue Jun  9 16:17:00 2020] run * * * * * echo 9
- [Tue Jun  9 16:17:00 2020] run * * * * * echo 12
- [Tue Jun  9 16:18:00 2020] run * * * * * echo
- [Tue Jun  9 16:18:00 2020] run * * * * * echo 4
- [Tue Jun  9 16:18:00 2020] run * * * * * echo 9
- [Tue Jun  9 16:18:00 2020] run * * * * * echo 12
- [Tue Jun  9 16:19:00 2020] run * * * * * echo
- [Tue Jun  9 16:19:00 2020] run * * * * * echo 4
- [Tue Jun  9 16:19:00 2020] run * * * * * echo 9
- [Tue Jun  9 16:19:00 2020] run * * * * * echo 12
- [Tue Jun  9 16:27:00 2020] run * * * * * echo
- [Tue Jun  9 16:27:00 2020] run * * * * * echo 4
- [Tue Jun  9 16:27:00 2020] run * * * * * echo 9
- [Tue Jun  9 16:27:00 2020] run * * * * * echo 12
+ [Wed Jun 10 03:35:31 2020] add * * * * * echo "*" > echomsg.txt
+ [Wed Jun 10 03:35:54 2020] add 40-42 * * * * echo "40-42" > echomsg.txt
+ [Wed Jun 10 03:36:29 2020] add 43-49/3 * * * * echo "43-49/3" > echomsg.txt
+ [Wed Jun 10 03:37:05 2020] add 43,46,47 * * * * echo "43,46,47"  echomsg.txt
+ [Wed Jun 10 03:37:34 2020] add */5 * * * * echo "*/5" > echomsg.txt
+ [Wed Jun 10 03:40:00 2020] run * * * * * echo "*" > echomsg.txt
+ [Wed Jun 10 03:40:00 2020] run 40-42 * * * * echo "40-42" > echomsg.txt
+ [Wed Jun 10 03:41:00 2020] run * * * * * echo "*" > echomsg.txt
+ [Wed Jun 10 03:41:00 2020] run 40-42 * * * * echo "40-42" > echomsg.txt
+ [Wed Jun 10 03:42:00 2020] run * * * * * echo "*" > echomsg.txt
+ [Wed Jun 10 03:42:00 2020] run 40-42 * * * * echo "40-42" > echomsg.txt
+ [Wed Jun 10 03:43:00 2020] run * * * * * echo "*" > echomsg.txt
+ [Wed Jun 10 03:43:00 2020] run 43,46,47 * * * * echo "43,46,47"  echomsg.txt
+ [Wed Jun 10 03:44:00 2020] run * * * * * echo "*" > echomsg.txt
+ [Wed Jun 10 03:44:00 2020] run */5 * * * * echo "*/5" > echomsg.txt
+ [Wed Jun 10 03:45:00 2020] run * * * * * echo "*" > echomsg.txt
+ [Wed Jun 10 03:45:00 2020] run 43-49/3 * * * * echo "43-49/3" > echomsg.txt
+ [Wed Jun 10 03:46:00 2020] run * * * * * echo "*" > echomsg.txt
+ [Wed Jun 10 03:46:00 2020] run 43,46,47 * * * * echo "43,46,47"  echomsg.txt
+ [Wed Jun 10 03:47:00 2020] run * * * * * echo "*" > echomsg.txt
+ [Wed Jun 10 03:47:00 2020] run 43,46,47 * * * * echo "43,46,47"  echomsg.txt
+ [Wed Jun 10 03:48:00 2020] run * * * * * echo "*" > echomsg.txt
+ [Wed Jun 10 03:48:00 2020] run 43-49/3 * * * * echo "43-49/3" > echomsg.txt
+ [Wed Jun 10 03:49:00 2020] run * * * * * echo "*" > echomsg.txt
+ [Wed Jun 10 03:49:00 2020] run */5 * * * * echo "*/5" > echomsg.txt
+ [Wed Jun 10 03:50:00 2020] run * * * * * echo "*" > echomsg.txt

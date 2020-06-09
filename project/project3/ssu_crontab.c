@@ -6,6 +6,7 @@
 #include <sys/stat.h>
 #include <sys/fcntl.h>
 #include <time.h>
+#include <sys/time.h>
 
 #define BUFFER_SIZE 1024
 #define MAX_EXPR_SIZE 100
@@ -34,7 +35,12 @@ int j = 0;
 int arrSize = 0;
 
 int main(void){
+	struct timeval startTime, endTime;
+	double diffTime;
+
 	int i;
+	
+	gettimeofday(&startTime, NULL);
 
 	fp = fopen(fname, "a");
 	fclose(fp);
@@ -77,6 +83,10 @@ int main(void){
 
 	}
 	fclose(fp);
+
+	gettimeofday(&endTime, NULL);
+	diffTime = (endTime.tv_sec - startTime.tv_sec) + ((endTime.tv_usec - startTime.tv_usec)/1000000);
+	printf("소요시간 : %f sec\n", diffTime);
 }
 
 int command_separation(char *line, int argc, char (*argv)[BUFFER_SIZE]){
@@ -144,9 +154,10 @@ int get_next_token(){
 		token = STAR;
 	}
 	else if(tokenbuf[0] >= '0' && tokenbuf[0] <= '9'){ //토큰 NUMBER 구분
-		while(exprbuf[i] >= '0' && exprbuf[i] <= '9'){
+		while(exprbuf[j] >= '0' && exprbuf[j] <= '9'){
 			tokenbuf[i++] = exprbuf[j++];
 		}
+		tokenbuf[i] = '\0';
 		num = atoi(tokenbuf);
 		
 		//현재 검사중인 시간 주기에 따라 숫자 범위 넘어가면 그만하고 에러 출력하게
@@ -308,7 +319,12 @@ int do_remove(int argc, char (*argv)[BUFFER_SIZE]){
 	
 	if((wantDeleteIndex = atoi(argv[1])) >= arrSize) //입력한게 범위 벗어났을 경우
 		return -1;
-	
+	if(arrSize == 1){ //한개밖에 없을 경우
+		strcpy(wantDeleteStr, commandbuf_arr[wantDeleteIndex]);
+	}
+	else if(wantDeleteIndex == arrSize){ //삭제하고 싶은게 맨 끝에거일 경우
+		strcpy(wantDeleteStr, commandbuf_arr[wantDeleteIndex]);
+	}
 	for(i = wantDeleteIndex; i < arrSize - 1; i++){
 		strcpy(wantDeleteStr, commandbuf_arr[i]); //지울 내용 임시 저장
 		memset(commandbuf_arr[i], 0, BUFFER_SIZE); //담기 전에 내용 비우기
